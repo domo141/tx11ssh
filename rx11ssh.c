@@ -26,7 +26,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Sun 17 Feb 2013 12:57:06 EET too
+ * Last modified: Mon 18 Feb 2013 18:09:45 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -128,14 +128,20 @@ const char display_ident[] = {
 };
 
 #if DEVEL
-#define d1(x) do {	write(2, __func__, strlen(__func__)); \
-			write(2, ": ", 2); warn x; } while (0)
+/*#define d1(x) do {	write(2, __func__, strlen(__func__)); \
+ *///			write(2, ": ", 2); warn x; } while (0)
+#define d2(x) do { warn x; } while (0)
+#define d1(x) do { warn x; } while (0)
+//#define d1(x) do {} while (0)
 #define d0(x) do {} while (0)
 #define da(x) do { if(!x) die("line %d: %s...", __LINE__, #x); } while (0)
+#define dx(x) do { x } while (0);
 #else
+#define d2(x) do {} while (0)
 #define d1(x) do {} while (0)
 #define d0(x) do {} while (0)
 #define da(x) do {} while (0)
+#define dx(x) do {} while (0)
 #endif
 
 // byte1: chnl (5-255), byte2: chnlcntr, byte 3-4 msg length -- max 16384
@@ -197,6 +203,8 @@ static void init_comm(void)
 
     for (int fd = 5; fd < 256; fd++)
 	(void)close(fd);
+
+    signal(SIGPIPE, SIG_IGN);
 }
 
 void vout(int fd, const char * format, va_list ap)
@@ -370,11 +378,16 @@ bool to_socket(int sfd, void * data, size_t datalen)
 	datalen -= wlen;
 
 	wlen = write(sfd, buf, datalen);
+	if (errno != EAGAIN && errno != EWOULDBLOCK) {
+	    warn("Channel %d fd gone ...:", sfd);
+	    return false;
+	}
 
 	if (wlen == (ssize_t)datalen) {
 	    info(2, "Writing data to %d took %d tries", sfd, tries);
 	    return true;
 	}
+	d1(("%d: wlen %d (of %u):", sfd, (int)wlen, (unsigned int)datalen));
     } while (++tries < 100); // 100 times makes that 10 sec total.
 
     warn("Peer at %d too slow to read traffic. dropping", sfd);
@@ -414,12 +427,13 @@ void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
 	die("writev() to net failed:");
 }
 
-int from_net(int fd, unsigned char * chnl, char * data)
+int from_netpipe(int fd, uint8_t * chnl, uint8_t * cntr, char * data)
 {
     uint16_t hdr[2];
 
     xreadfully(fd, hdr, 4);
     *chnl = ((unsigned char *)hdr)[0];
+    *cntr = ((unsigned char *)hdr)[1];
     int dlen = ntohs(hdr[1]);
     if (dlen > 16384)
 	die("Protocol error: server message '%d' too long\n", dlen);
@@ -438,16 +452,20 @@ void close_socket_and_remap(int sd)
     int o = G.chnl2pfd[sd];
     G.chnl2pfd[sd] = 0;
 
+    G.chnlcntr[sd]++;
+
+    d2(("remap: sd %d, o %d, nfds %d, cntr %d", sd, o, G.nfds,G.chnlcntr[sd]));
+
     if (o == G.nfds)
 	return;
-
-    // XXX check these -- add debug infooo //
-    // voiko mappays siirtää alle nfds loop position //
 
     G.pfds[o].fd = G.pfds[G.nfds].fd;
     G.pfds[o].revents = G.pfds[G.nfds].revents;
 
     G.chnl2pfd[G.pfds[o].fd] = o;
+
+    dx(for (int i = 0; i < G.nfds; i++) { int fd = G.pfds[i].fd;
+	    warn("fdmap: i: %d -> fd: %d (%d)", i, fd, G.chnl2pfd[fd]); });
 }
 
 int from_socket_to_netpipe(int pfdi, int netfd)
@@ -461,7 +479,7 @@ int from_socket_to_netpipe(int pfdi, int netfd)
 	    warn("read from %d failed, closing:", fd);
 	else
 	    // change to info or verbose tjsp, info hjuva
-	    warn("EOF from %d", fd);
+	    warn("EOF from %d. closing", fd);
 
 	mux_eof_to_netpipe(netfd, fd);
 	close_socket_and_remap(fd);
@@ -577,14 +595,20 @@ int sshconn(char * ssh_command, char * argv[], const char * socknum)
     return sv[0];
 }
 
-// vertaile toisen suunnan kans.
-void handle_network_input(void)
+void server_handle_display_message(void)
 {
     char buf[16384];
-    unsigned char chnl;
+    unsigned char chnl, cntr;
 
-    int len = from_net(3, &chnl, buf);
+    int len = from_netpipe(3, &chnl, &cntr, buf);
 
+    d1(("chnl %d, cntr %d, len %d (%d)", chnl, cntr, len, G.nfds));
+
+    if (cntr != G.chnlcntr[chnl]) {
+	warn("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
+	     chnl, cntr, G.chnlcntr[chnl], len);
+	return;
+    }
     if (len == 0) {
 	warn("EOF from %d. closing", chnl);
 	close_socket_and_remap(chnl);
@@ -780,7 +804,7 @@ void server_main(int argc, char * argv[])
 	    break;
 
 	if (G.pfds[0].revents) {
-	    handle_network_input();
+	    server_handle_display_message();
 	    if (n == 1)
 		continue;
 	}
@@ -800,6 +824,7 @@ void server_main(int argc, char * argv[])
 	    else {
 		G.pfds[G.nfds].fd = sd;
 		G.chnl2pfd[sd] = G.nfds++;
+		d2(("new chnl %d, nfds %d", sd, G.nfds));
 	    }
 	}
     }
@@ -833,17 +858,22 @@ int xuconnect(const char * path)
     return sd;
 }
 
-void handle_server_message(void)
+void display_handle_server_message(void)
 {
     char buf[16384];
-    unsigned char chnl;
+    unsigned char chnl, cntr;
 
-    int len = from_net(0, &chnl, buf);
+    int len = from_netpipe(0, &chnl, &cntr, buf);
 
     int pfdi = G.chnl2pfd[chnl];
 
-    d0(("%d %d %d", chnl, len, pfdi));
+    d1(("chnl %d, cntr %d, len %d, pfdi %d(/%d)", chnl,cntr,len,pfdi,G.nfds));
 
+    if (cntr != G.chnlcntr[chnl]) {
+	warn("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
+	     chnl, cntr, G.chnlcntr[chnl], len);
+	return;
+    }
     if (pfdi == 0) {
 	if (chnl < 5) {
 	    warn("New connection %d less than 5. Drop it", chnl);
@@ -856,6 +886,7 @@ void handle_server_message(void)
 	int fd = xuconnect(G.socket_file);
 	if (fd != chnl) {
 	    if (fd < 0) {
+		warn("Failed to connect %s:", G.socket_file);
 		mux_eof_to_netpipe(1, chnl);
 		return;
 	    }
@@ -867,6 +898,7 @@ void handle_server_message(void)
 	}
 	G.pfds[G.nfds].fd = chnl;
 	G.chnl2pfd[chnl] = G.nfds++;
+	d2(("new chnl %d, nfds %d", fd, G.nfds));
     }
     if (len == 0) {
 	warn("EOF for %d. closing", chnl);
@@ -923,7 +955,7 @@ void display_main(int argc, char * argv[], int argi)
 	    break;
 
 	if (G.pfds[0].revents) { /* XXX should check POLLIN */
-	    handle_server_message();
+	    display_handle_server_message();
 	    if (n == 1)
 		continue;
 	}
