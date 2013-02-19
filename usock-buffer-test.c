@@ -3,10 +3,13 @@
  WARN="-Wall -Wno-long-long -Wstrict-prototypes -pedantic"
  WARN="$WARN -Wcast-align -Wpointer-arith " # -Wfloat-equal #-Werror
  WARN="$WARN -W -Wwrite-strings -Wcast-qual -Wshadow" # -Wconversion
+ set_cc() { CC=$2; }
+ CC=; case ${1-} in CC=*) ifs=$IFS; IFS==; set_cc $1; IFS=$ifs; shift; esac
  case ${1-} in '') set x -O2; shift; esac
  #case ${1-} in '') set x -ggdb; shift; esac
- set -x; exec ${CC:-gcc} -std=c99 $WARN "$@" -o "$trg" "$0"
- exit $?
+ xexec () { echo + "$@"; exec "$@"; }
+ xexec ${CC:-gcc} -std=c99 $WARN -DSERVER -DDISPLAY "$@" -o "$trg" "$0"
+ exit
  */
 #endif
 /*
@@ -18,7 +21,7 @@
  *          All rights reserved
  *
  * Created: Wed 06 Feb 2013 15:00:54 EET too
- * Last modified: Wed 06 Feb 2013 16:09:20 EET too
+ * Last modified: Tue 19 Feb 2013 21:39:36 EET too
  */
 
 #include <unistd.h>

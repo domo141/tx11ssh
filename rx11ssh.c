@@ -1,19 +1,21 @@
 #if 0 /* -*- mode: c; c-file-style: "stroustrup"; tab-width: 8; -*-
- set -eu; trg=`basename "$0" .c`; rm -f "$trg" "$trg"-display
+ set -eu; trg=`basename "$0" .c`; rm -f "$trg" "$trg"
  WARN="-Wall -Wno-long-long -Wstrict-prototypes -pedantic"
  WARN="$WARN -Wcast-align -Wpointer-arith " # -Wfloat-equal #-Werror
  WARN="$WARN -W -Wshadow -Wwrite-strings -Wcast-qual" # -Wconversion
+ set_cc() { CC=$2; }
+ CC=; case ${1-} in CC=*) ifs=$IFS; IFS==; set_cc $1; IFS=$ifs; shift; esac
  case ${1-} in
 	p) set x -O2; shift ;;
 	d) set x -ggdb -DDEVEL; shift ;;
-	'') exec 2>&1; echo Enter:
-	echo " sh $0 d -- for devel compilation"
-	echo " sh $0 p -- for production compilation"
+	'') exec >&2; echo Enter:
+	echo " sh $0 [CC=<cc>] d -- for devel compilation"
+	echo " sh $0 [CC=<cc>] p -- for production compilation"
 	echo " other options -- passed to '${CC:-gcc}' command line"
 	exit 1
  esac
- set -x
- ${CC:-gcc} -std=c99 $WARN -DSERVER -DDISPLAY "$@" -o "$trg" "$0"
+ xexec () { echo + "$@"; exec "$@"; }
+ xexec ${CC:-gcc} -std=c99 $WARN -DSERVER -DDISPLAY "$@" -o "$trg" "$0"
  exit
  */
 #endif
@@ -26,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Tue 19 Feb 2013 20:30:39 EET too
+ * Last modified: Tue 19 Feb 2013 21:18:11 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
