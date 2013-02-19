@@ -1,0 +1,41 @@
+
+
+detach:
+        nohup(1) setsid(1) rx11ssh ...
+        nohup(1) setsid(1) sh -c 'exec rx11ssh ... 2>file'
+        nohup(1) script(1) -c 'rx11ssh ... 2>file'
+        screen(1)
+        tmux(1)
+        dtach(1) -c rx11ssh-dtach-sock rx11ssh...
+        dtach(1) -n rx11ssh-dtach-sock /bin/sh -c 'exec rx11ssh... 2>file'
+
+
+        nohup setsid rx11ssh ... > rx11ssh.log
+
+
+Detaching rx11ssh
+
+        Perfect "detaching" from shell is impossible to implement in
+        rx11ssh since one needs to detach from control terminal too.
+        If detaching is postponed after ssh tunnel is created, the
+        ssh process cannot be detached (anymore). If detach is done
+        before executing ssh, interactive authentication methods on
+        terminal cannot be done anymore.
+        Therefore detaching, whenever anyone wants to do so, can be
+        done at least with the the help of following commands(*):
+
+        Non-interactive:
+
+        nohup setsid rx11ssh example.org > rx11ssh.log
+        nohup script -a -f -c rx11ssh.c rx11ssh.log >/dev/null
+        dtach -n rx11ssh-dtach-s sh -c 'exec rx11ssh example.org 2>rx11ssh.log'
+
+        Interactive, until detached:
+
+        dtach -c rx11ssh-dtach-s sh -c 'exec rx11ssh example.org 2>rx11ssh.log'
+        dtach -c rx11ssh-dtach-s script -c rx11ssh example.org rx1ssh.log
+        screen rx11ssh example.org
+        tmux  rx11ssh example.org
+
+        (*) Interestingly at least in linux, both setsid(1) & script(1) escapes
+        from terminal when execve'd from nohup(1)...
