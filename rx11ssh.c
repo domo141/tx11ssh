@@ -26,7 +26,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Tue 19 Feb 2013 14:55:12 EET too
+ * Last modified: Tue 19 Feb 2013 16:57:43 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -502,17 +502,6 @@ void xdup2(int o, int n)
 	die("dup2:");
 }
 
-void redirect_stderr(const char * stderr_file)
-{
-    if (stderr_file) {
-	int fd = open(stderr_file, O_WRONLY|O_CREAT|O_APPEND, 0644);
-	if (fd < 0)
-	    die("open '%s' for writing:", stderr_file);
-	xdup2(fd, 2);
-	close(2);
-    }
-}
-
 #if SERVER
 
 int xubind_listen(const char * path)
@@ -641,9 +630,7 @@ void server_main(int argc, char * argv[])
     init_G(argv[0]);
 
     BB;
-    char * stderr_file = null;
     char * ssh_command = null;
-    int detach = 0;
     char ssh_default_cmd[8];
     const char * lsn = "11";
     const char * rsn = "0";
@@ -674,17 +661,6 @@ void server_main(int argc, char * argv[])
 	    }
 	    continue;
 	}
-	if (strcmp(argv[1], "--detach") == 0) {
-	    argv[1] = argv[0];
-	    detach = 1;
-	    continue;
-	}
-	if (strcmp(argv[1], "--stderr") == 0) {
-	    stderr_file = argv[2];
-	    argv[2] = argv[0];
-	    argc--; argv++;
-	    continue;
-	}
 	if (strcmp(argv[1], "--ssh-command") == 0) {
 	    ssh_command = argv[2];
 	    argv[2] = argv[0];
@@ -702,9 +678,6 @@ void server_main(int argc, char * argv[])
 		argv[1], ssh_command? ssh_command: "ssh");
 	break;
     }
-
-    if (detach && ! stderr_file)
-	die("Option '--detach' requires option '--stderr'");
 
     if (argc < 2) {
 	// XXX also separate case where ssh_command != null
@@ -756,7 +729,6 @@ void server_main(int argc, char * argv[])
     (void)mkdir(sockdir, 1777);
 
     (void)close(4);
-
     int ssd = xubind_listen(G.socket_file);
 
     if (ssd != 4)
@@ -770,32 +742,6 @@ void server_main(int argc, char * argv[])
 
     info(2, "Initialization done");
 
-    if (detach) {
-	int pipefd[2];
-	if (pipe(pipefd) < 0)
-	    die("pipe:");
-	switch (fork())
-	{
-	case 0:
-	    // child
-	    close(pipefd[0]);
-	    create_2_nullfds(0, 1);
-	    da((stderr_file != null));
-	    redirect_stderr(stderr_file);
-	    setsid();
-	    close(pipefd[1]);
-	case -1:
-	    die("fork:");
-	default:
-	    // parent
-	    close(pipefd[1]);
-	    // wait for the child to be ready
-	    read(pipefd[0], (char *)pipefd, 1);
-	    _exit(0);
-	}
-    }
-    else
-	redirect_stderr(stderr_file); // if stderr_file != null
     BE;
 
     while (1)
