@@ -26,7 +26,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Mon 18 Feb 2013 18:09:45 EET too
+ * Last modified: Tue 19 Feb 2013 14:55:12 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -568,7 +568,7 @@ int sshconn(char * ssh_command, char * argv[], const char * socknum)
 	    close(sv[1]);
 
 #define args_max 200
-	char * av[args_max + 4];
+	char * av[args_max + 5];
 	int i;
 	for (i = 1; i < args_max && argv[i]; i++)
 	    av[i] = argv[i];
@@ -578,7 +578,9 @@ int sshconn(char * ssh_command, char * argv[], const char * socknum)
 	av[0] = ssh_command;
 	char cmd[] = { "rx11ssh" };
 	av[i++] = cmd;
-	char idn[] = { "--display--" };
+	char rmt[] = { "--remote--" };
+	av[i++] = rmt;
+	char idn[] = { "display" };
 	av[i++] = idn;
 	char dnumstr[8];
 	strcpy(dnumstr, socknum);
@@ -650,9 +652,9 @@ void server_main(int argc, char * argv[])
     for( ; argc >= 2; argc--, argv++) {
 	if (argv[1][0] == ':') {
 	    char * p = &argv[1][1];
-	    if (isdigit(*p)) {
+	    if (isdigit((int)*p)) {
 		lsn = p++;
-		while (isdigit(*p))
+		while (isdigit((int)*p))
 		    p++;
 		if (*p != ':' && *p != '\0')
 		    die("Illegal local socket number in '%s'", argv[1]);
@@ -662,7 +664,7 @@ void server_main(int argc, char * argv[])
 	    if (*p == ':') {
 		char * q = p++;
 		rsn = p;
-		while (isdigit(*p))
+		while (isdigit((int)*p))
 		    p++;
 		if (p == rsn || *p != '\0')
 		    die("Illegal remote socket number in '%s'", argv[1]);
@@ -924,7 +926,7 @@ void display_main(int argc, char * argv[], int argi)
 
     BB;
     char * p = argv[1];
-    while (isdigit(*p))
+    while (isdigit((int)*p))
 	p++;
     if (p == argv[1] || *p != '\0')
 	die("'%s': illegal display socket number", argv[1]);
@@ -970,9 +972,15 @@ void display_main(int argc, char * argv[], int argi)
 int main(int argc, char ** argv)
 {
     for (int i = 1; i < argc; i++)
-	if (strcmp(argv[i], "--display--") == 0) {
-	    display_main(argc, argv, i);
-	    return 0;
+	if (strcmp(argv[i], "--remote--") == 0) {
+	    i++;
+	    if (argv[i] == null)
+		return 1;
+	    /**/ if (strcmp(argv[i], "display") == 0)
+		display_main(argc, argv, i);
+	    //else if (strcmp(argv[i], "display") == 0)
+
+	    return 1;
 	}
     server_main(argc, argv);
     return 0;
