@@ -12,6 +12,12 @@ detach:
 
         nohup setsid rx11ssh ... > rx11ssh.log
 
+SECURITY
+
+        Currently credentials of clients connecting to server socket
+        are not checked (poor documentation, especially on portability
+        point of view). Use only on 'safe' systems. You're been warned
+
 
 Detaching rx11ssh
 
