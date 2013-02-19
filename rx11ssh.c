@@ -26,7 +26,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Tue 19 Feb 2013 16:57:43 EET too
+ * Last modified: Tue 19 Feb 2013 20:30:39 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -502,6 +502,18 @@ void xdup2(int o, int n)
 	die("dup2:");
 }
 
+int xfcntl(int fd, int cmd, int arg)
+{
+    int rv = fcntl(fd, cmd, arg);
+    if (rv < 0) die("fcntl:");
+    return rv;
+}
+
+void set_nonblock(int sd)
+{
+    xfcntl(sd, F_SETFL, xfcntl(sd, F_GETFL, 0) | O_NONBLOCK);
+}
+
 #if SERVER
 
 int xubind_listen(const char * path)
@@ -625,6 +637,7 @@ void server_sighandler(int sig)
     exit(sig);
 }
 
+void server_main(int argc, char * argv[]) GCCATTR_NORETURN;
 void server_main(int argc, char * argv[])
 {
     init_G(argv[0]);
@@ -749,7 +762,7 @@ void server_main(int argc, char * argv[])
 	d0(("before poll: nfds = %d", G.nfds));
 	int n;
 	if ((n = poll(G.pfds, G.nfds, -1)) <= 0)
-	    break;
+	    exit(1);
 
 	if (G.pfds[0].revents) {
 	    server_handle_display_message();
@@ -770,6 +783,7 @@ void server_main(int argc, char * argv[])
 		close(sd);
 	    }
 	    else {
+		set_nonblock(sd);
 		G.pfds[G.nfds].fd = sd;
 		G.chnl2pfd[sd] = G.nfds++;
 		d2(("new chnl %d, nfds %d", sd, G.nfds));
@@ -844,6 +858,7 @@ void display_handle_server_message(void)
 	    else
 		close(fd);
 	}
+	set_nonblock(chnl);
 	G.pfds[G.nfds].fd = chnl;
 	G.chnl2pfd[chnl] = G.nfds++;
 	d2(("new chnl %d, nfds %d", fd, G.nfds));
@@ -860,6 +875,7 @@ void display_handle_server_message(void)
     }
 }
 
+void display_main(int argc, char * argv[], int argi) GCCATTR_NORETURN;
 void display_main(int argc, char * argv[], int argi)
 {
     init_G("remote");
@@ -900,7 +916,7 @@ void display_main(int argc, char * argv[], int argi)
     {
 	int n;
 	if ((n = poll(G.pfds, G.nfds, -1)) <= 0)
-	    break;
+	    exit(1);
 
 	if (G.pfds[0].revents) { /* XXX should check POLLIN */
 	    display_handle_server_message();
