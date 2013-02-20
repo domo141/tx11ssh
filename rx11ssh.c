@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Tue 19 Feb 2013 21:18:11 EET too
+ * Last modified: Wed 20 Feb 2013 20:55:28 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -164,6 +164,12 @@ const char sockdir[] = "/tmp/.X11-unix";
 
 void die(const char * format, ...) GCCATTR_PRINTF(1,2) GCCATTR_NORETURN;
 
+void set_ident(const char * ident)
+{
+    G.component_ident = ident;
+    G.component_identlen = strlen(G.component_ident);
+}
+
 void init_G(const char * ident)
 {
     memset(&G, 0, sizeof G);
@@ -191,8 +197,7 @@ void init_G(const char * ident)
     BE;
 #endif
 
-    G.component_ident = ident;
-    G.component_identlen = strlen(G.component_ident);
+    set_ident(ident);
     G.infolevel = 2;
 }
 
@@ -642,8 +647,6 @@ void server_sighandler(int sig)
 void server_main(int argc, char * argv[]) GCCATTR_NORETURN;
 void server_main(int argc, char * argv[])
 {
-    init_G(argv[0]);
-
     BB;
     char * ssh_command = null;
     char ssh_default_cmd[8];
@@ -732,8 +735,7 @@ void server_main(int argc, char * argv[])
     if (sshfd != 3)
 	die("Unexpected fd %d (not 3) for ssh connection", sshfd);
 
-    G.component_ident = "local";
-    G.component_identlen = strlen(G.component_ident);
+    set_ident("local");
 
     if (write(3, server_ident, sizeof server_ident) != sizeof server_ident)
 	die("Could not send server ident:");
@@ -880,7 +882,7 @@ void display_handle_server_message(void)
 void display_main(int argc, char * argv[], int argi) GCCATTR_NORETURN;
 void display_main(int argc, char * argv[], int argi)
 {
-    init_G("remote");
+    set_ident("remote"); // XXX is local in forward mode
 
     argc-= argi;
     argv+= argi;
@@ -935,6 +937,8 @@ void display_main(int argc, char * argv[], int argi)
 
 int main(int argc, char ** argv)
 {
+    init_G(argv[0]);
+
     for (int i = 1; i < argc; i++)
 	if (strcmp(argv[i], "--remote--") == 0) {
 	    i++;
