@@ -1,29 +1,36 @@
-
+# -*- makefile -*-
 
 CC=gcc
 
-.PHONY: all
+SHELL = /bin/sh
+
 all: rx11ssh
 
-rx11ssh: rx11ssh.c
-	sh $< CC=$(CC) p
+rx11ssh: force
+	sh rx11ssh.c CC=$(CC) p
 
-.PHONY: tstbin
-tstbin: rx11ssh.c
-	sh $< CC=$(CC) d
+tstbin: force
+	sh rx11ssh.c CC=$(CC) d
 
 itest: tstbin # infinite test
 	./test-rx11ssh.pl
 
-ltest: tstbin # local test
+ltest1: tstbin # local test
 	./rx11ssh --ssh-command ./rx11ssh none
 
-usbtest:
-	sh usock-buffer-test.c CC=$(CC)
+ltest2: tstbin # local test using ssh
+	./rx11ssh 127.1
+
+usbtest: usock-buffer-test
 	./usock-buffer-test 4120
 
-.PHONY: clean
-clean:
-	rm -f rx11ssh usock-buffer-test
+usock-buffer-test: usock-buffer-test
+	sh $< CC=$(CC)
+
+
+clean distclean: force
+	rm -f rx11ssh usock-buffer-test *~
+
+.PHONY: force
 
 .SUFFIXES:
