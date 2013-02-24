@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Sun 24 Feb 2013 18:34:47 EET too
+ * Last modified: Sun 24 Feb 2013 23:33:58 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -218,7 +218,7 @@ void vout(int fd, const char * format, va_list ap)
     int error = errno;
 
     char timestr[32];
-    char msg[512];
+    char msg[1024];
     time_t t = time(0);
     struct tm * tm = localtime(&t);
 #if CIOVEC_HAX
@@ -915,7 +915,22 @@ int main(int argc, char ** argv)
 	}
 
     if (argc < 3) {
-	// XXX also separate case where ssh_command != null
+	G.component_identlen = 0;
+#define NL "\n"
+	die("\n\nUsage: %s (+|-) [:[nums][:numd]] [--ssh-command command] args"
+	    NL
+	    NL "  +: open (X) windows to remote machine display after connecting"
+	    NL "  -: open (X) windows from remote machine to local display after connecting"
+	    NL
+	    NL "  nums: server socket to bind, 11 by default"
+	    NL "  numd: display socket to connect, 0 by default"
+	    NL
+	    NL "  --ssh-command: command instead of 'ssh' to use for tunnel"
+	    NL
+	    NL " args: see help of 'ssh' (or --ssh-command) for what arguments the command"
+	    NL "       accepts. Note that all args aren't useful (like '-f' for ssh)."
+	    NL, G.component_ident);
+
 	warn("See usage of 'ssh' for how to connect to display\n");
 	execlp("ssh", "ssh", null);
 	die("execvp:");
