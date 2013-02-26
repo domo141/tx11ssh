@@ -22,7 +22,7 @@
  *          All rights reserved
  *
  * Created: Sun 24 Feb 2013 17:42:17 EET too
- * Last modified: Sun 24 Feb 2013 22:21:41 EET too
+ * Last modified: Tue 26 Feb 2013 14:22:24 EET too
  */
 
 #include <unistd.h>
@@ -38,6 +38,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+const char server_socket_directory[]     = "/tmp/.X11-unix";
 const char server_socket_to_be_wrapped[] = "/tmp/.X11-unix/X11";
 
 char server_socket_wrapped_path[sizeof ((struct sockaddr_un *)0)->sun_path];
@@ -113,6 +114,23 @@ static void set_server_socket_path(void)
 
     server_socket_path_set = 1;
 }
+
+int mkdir(const char * path, mode_t mode)
+{
+    static int (*mkdir_orig)(const char *, mode_t) = NULL;
+
+    if (! mkdir_orig)
+    {
+        dlopen_libc();
+        *(void **)(&mkdir_orig) = dlsym_("mkdir");
+    }
+
+    if (strcmp(path, server_socket_directory) == 0)
+        return 0;
+
+    return mkdir_orig(path, mode);
+}
+
 
 int stat(const char * path, struct stat * buf)
 {
