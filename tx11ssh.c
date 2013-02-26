@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Sun 24 Feb 2013 23:33:58 EET too
+ * Last modified: Mon 25 Feb 2013 23:48:56 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -197,7 +197,7 @@ void init_G(const char * ident)
 #endif
 
     set_ident(ident);
-    G.infolevel = 2;
+    G.infolevel = 3;
 }
 
 static void init_comm(void)
@@ -300,37 +300,52 @@ void sleep100ms(void)
 
 void wait_for_ident(int fd, const char * ident, size_t isize)
 {
-    char buf[640]; // 640 bytes ought to be enough for anyone ;)
-    size_t r = 0;
-    int l;
+#if 1
+    char buf[8192];
+#else
+    char buf[7]; // for testing purposes
+#endif
+    int l = 0;
+    size_t epos = 0;
 
     info2("Waiting identification");
 
     while (1) {
-	while ( (l = read(fd, buf + r, isize - r)) > 0) {
-	    r += l;
-	    d1(("read %d bytes from %d (r=%jd, isize=%jd)", l, fd, r, isize));
-	    if (memcmp(buf, ident, r) == 0) {
-		if (r == isize)
-		    return;
+	l = read(fd, buf, sizeof buf);
+	if (l <= 0) {
+	    if (l < 0) {
+		if (errno == EINTR)
+		    continue;
+		die("Read failed while waiting ident:");
+	    }
+	    die("EOF while waiting ident");
+	}
+	d1(("read %d bytes from %d (epos=%jd)", l, fd, epos));
+	char * p = buf;
+	if (epos == 0) {
+	    p = memchr(p, ident[epos], l);
+	    if (p == null) {
+		write(1, buf, l);
 		continue;
 	    }
-	    if (buf[r-1] == '\n') {
-		buf[r-1] = '\\';
-		buf[r++] = 'n';
+	    l -= (p - buf);
+	}
+	while (l > 0 && epos < isize) {
+	    if (*p == ident[epos]) {
+		p++;
+		epos++;
+		l--;
 	    }
-	    for(unsigned int i = 0; i < r; i++)
-		if (buf[i] == '\0')
-		    buf[i] = '0';
-	    buf[r] = 0;
-	    die("Unexpected ident '%s' (not %.*s)", buf, isize - 2, ident+1);
+	    else {
+		epos = 0;
+		if (*p != ident[epos]) {
+		    write(1, buf, p - buf);
+		    break;
+		}
+	    }
 	}
-	if (l < 0) {
-	    if (errno == EINTR)
-		continue;
-	    die("Read failed while reading ident:");
-	}
-	die("EOF while waiting for ident");
+	if (epos == isize)
+	    return; // XXX check that l == 0 //
     }
 }
 
@@ -395,7 +410,7 @@ bool to_socket(int sfd, void * data, size_t datalen)
 	d1(("%d: wlen %d (of %u):", sfd, (int)wlen, (unsigned int)datalen));
     } while (++tries < 100); // 100 times makes that 10 sec total.
 
-    warn("Peer at %d too slow to read traffic. dropping", sfd);
+    info1("Peer at %d too slow to read traffic. dropping", sfd);
     return false;
 }
 
@@ -426,7 +441,7 @@ void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
     iov[1].iov_base = data;
     iov[1].iov_len = datalen;
 
-    d0(("%d bytes to chnl %d", datalen, chnl));
+    d0(("%jd bytes to chnl %d via fd %d", datalen, chnl, fd));
 
     if (writev(fd, iov, 2) != (ssize_t)datalen + 4)
 	die("writev() to net failed:");
@@ -484,7 +499,7 @@ int from_socket_to_netpipe(int pfdi, int netfd)
 	    warn("read from %d failed, closing:", fd);
 	else
 	    // change to info or verbose tjsp, info hjuva
-	    warn("EOF from %d. closing", fd);
+	    info2("EOF from %d. closing", fd);
 
 	mux_eof_to_netpipe(netfd, fd);
 	close_socket_and_remap(fd);
@@ -592,6 +607,7 @@ int sshconn(char * ssh_command, char * argv[],
 #define args_max 200
 	char * av[args_max + 5];
 	int i;
+	argv--;
 	for (i = 1; i < args_max && argv[i]; i++)
 	    av[i] = argv[i];
 	if (i == args_max)
@@ -630,12 +646,12 @@ void server_handle_display_message(int rfdi, int rfdo)
     d1(("chnl %d, cntr %d, len %d (%d)", chnl, cntr, len, G.nfds));
 
     if (cntr != G.chnlcntr[chnl]) {
-	warn("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
+	info3("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
 	     chnl, cntr, G.chnlcntr[chnl], len);
 	return;
     }
     if (len == 0) {
-	warn("EOF from %d. closing", chnl);
+	info2("EOF from %d. closing", chnl);
 	close_socket_and_remap(chnl);
 	return;
     }
@@ -655,6 +671,8 @@ void server_atexit(void)
 void server_loop(int rfdi) GCCATTR_NORETURN;
 void server_loop(int rfdi)
 {
+    if (mkdir(sockdir, 01777) == 0)
+	chmod(sockdir, 01777);
     (void)close(4);
     int ssd = xubind_listen(G.socket_file);
 
@@ -687,7 +705,7 @@ void server_loop(int rfdi)
 		continue;
 	}
 	for (int i = 2; i < G.nfds; i++)
-	    if (G.pfds[i].revents && ! from_socket_to_netpipe(i, rfdi))
+	    if (G.pfds[i].revents && ! from_socket_to_netpipe(i, rfdo))
 		i--;
 
 	// last add to fd table
@@ -720,6 +738,8 @@ void remote_server(char ** av)
 
     wait_for_ident(0, display_ident, sizeof display_ident);
 
+    write(1, "", 1);
+
     create_nullfd(3);
 
     server_loop(0);
@@ -736,6 +756,8 @@ void local_server(void)
 
     if (write(3, server_ident, sizeof server_ident) != sizeof server_ident)
 	die("Could not send server ident:");
+
+    char c; xreadfully(3, &c, 1);
 
     server_loop(3);
 }
@@ -768,20 +790,20 @@ int xuconnect(const char * path)
     return sd;
 }
 
-void display_handle_server_message(int sfdi, int sfdo)
+void display_handle_server_message(int rfdi, int rfdo)
 {
     char buf[16384];
     unsigned char chnl, cntr;
 
-    int len = from_netpipe(sfdi, &chnl, &cntr, buf);
+    int len = from_netpipe(rfdi, &chnl, &cntr, buf);
 
     int pfdi = G.chnl2pfd[chnl];
 
     d1(("chnl %d, cntr %d, len %d, pfdi %d(/%d)", chnl,cntr,len,pfdi,G.nfds));
 
     if (cntr != G.chnlcntr[chnl]) {
-	warn("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
-	     chnl, cntr, G.chnlcntr[chnl], len);
+	info3("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
+	      chnl, cntr, G.chnlcntr[chnl], len);
 	return;
     }
     if (pfdi == 0) {
@@ -790,14 +812,14 @@ void display_handle_server_message(int sfdi, int sfdo)
 	    return;
 	}
 	if (len == 0) {
-	    warn("New connection %d EOF'd immediately", chnl);
+	    info1("New connection %d EOF'd immediately", chnl);
 	    return;
 	}
 	int fd = xuconnect(G.socket_file);
 	if (fd != chnl) {
 	    if (fd < 0) {
 		warn("Failed to connect %s:", G.socket_file);
-		mux_eof_to_netpipe(sfdo, chnl);
+		mux_eof_to_netpipe(rfdo, chnl);
 		return;
 	    }
 	    xdup2(fd, chnl);
@@ -812,18 +834,16 @@ void display_handle_server_message(int sfdi, int sfdo)
 	d2(("new chnl %d, nfds %d", fd, G.nfds));
     }
     if (len == 0) {
-	warn("EOF for %d. closing", chnl);
+	info2("EOF for %d. closing", chnl);
 	close_socket_and_remap(chnl);
 	return;
     }
 
     if (! to_socket(chnl, buf, len)) {
-	mux_eof_to_netpipe(sfdo, chnl);
+	mux_eof_to_netpipe(rfdo, chnl);
 	close_socket_and_remap(chnl);
     }
 }
-
-// XXX yhdenmukaista rfdi, sfdi, dfdi, etch...
 
 void display_loop(int rfdi) GCCATTR_NORETURN;
 void display_loop(int rfdi)
@@ -866,6 +886,8 @@ void remote_display(char ** av)
 
     wait_for_ident(0, server_ident, sizeof server_ident);
 
+    write(1, "", 1);
+
     create_nullfd(3);
     xdup2(3, 4);
 
@@ -884,11 +906,32 @@ void local_display(void)
     if (write(3, display_ident, sizeof display_ident) != sizeof display_ident)
 	die("Could not send server ident:");
 
+    char c; xreadfully(3, &c, 1);
+
     create_nullfd(4);
     display_loop(3);
 }
 
 #endif // DISPLAY
+
+bool get_next_arg_val(int * acp, char *** avp, const char * s, char ** ap)
+{
+    int i = strcmp(**avp, s);
+
+    if (i == 0) {
+	(*acp)--; (*avp)++;
+	*ap = **avp;
+	return true;
+    }
+    if (i == '=') {
+	int l = strlen(s);
+	if (memcmp(**avp, s, l) == 0 && (**avp)[l] == '=') {
+	    *ap = (**avp) + l + 1;
+	    return true;
+	}
+    }
+    return false;
+}
 
 void exit_sig(int sig) { exit(sig); }
 
@@ -914,7 +957,7 @@ int main(int argc, char ** argv)
 	    die("'%s': unknown remote component", argv[i]);
 	}
 
-    if (argc < 3) {
+    if (argc < 2) {
 	G.component_identlen = 0;
 #define NL "\n"
 	die("\n\nUsage: %s (+|-) [:[nums][:numd]] [--ssh-command command] args"
@@ -930,21 +973,19 @@ int main(int argc, char ** argv)
 	    NL " args: see help of 'ssh' (or --ssh-command) for what arguments the command"
 	    NL "       accepts. Note that all args aren't useful (like '-f' for ssh)."
 	    NL, G.component_ident);
-
-	warn("See usage of 'ssh' for how to connect to display\n");
-	execlp("ssh", "ssh", null);
-	die("execvp:");
     }
 
     int remote_is_display;
     BB;
 
-    /**/ if (argv[1][0] == '+' && argv[1][1] == '\0')
+    argc--; argv++;
+
+    /**/ if (argv[0][0] == '+' && argv[0][1] == '\0')
 	remote_is_display = true;
-    else if (argv[1][0] == '-' && argv[1][1] == '\0')
+    else if (argv[0][0] == '-' && argv[0][1] == '\0')
 	remote_is_display = false;
     else
-	die("Prefix/replace first arg '%s' with '+' or '-'.", argv[1]);
+	die("Prefix/replace first arg '%s' with '+' or '-'", argv[0]);
 
     argc--; argv++;
 
@@ -954,17 +995,17 @@ int main(int argc, char ** argv)
     const char * dsn = "0";
 
     // partial argument parsing block //
-    for( ; argc >= 2; argc--, argv++) {
-	if (argv[1][0] == ':') {
-	    char * p = &argv[1][1];
+    for( ; argc >= 1; argc--, argv++) {
+	if (argv[0][0] == ':') {
+	    char * p = &argv[0][1];
 	    if (isdigit((int)*p)) {
 		ssn = p++;
 		while (isdigit((int)*p))
 		    p++;
 		if (*p != ':' && *p != '\0')
-		    die("Illegal X server socket number in '%s'", argv[1]);
-		if (p - argv[1] > 5)
-		    die("X server socket number in '%s' is too big", argv[1]);
+		    die("Illegal X server socket number in '%s'", argv[0]);
+		if (p - argv[0] > 5)
+		    die("X server socket number in '%s' is too big", argv[0]);
 	    }
 	    if (*p == ':') {
 		char * q = p++;
@@ -972,30 +1013,28 @@ int main(int argc, char ** argv)
 		while (isdigit((int)*p))
 		    p++;
 		if (p == dsn || *p != '\0')
-		    die("Illegal X display socket number in '%s'", argv[1]);
+		    die("Illegal X display socket number in '%s'", argv[0]);
 		if (p - dsn > 4)
-		    die("X display socket number in '%s' is too big", argv[1]);
+		    die("X display socket number in '%s' is too big", argv[0]);
 		*q = '\0';
 	    }
 	    continue;
 	}
-	if (strcmp(argv[1], "--ssh-command") == 0) {
-	    ssh_command = argv[2];
-	    argv[2] = argv[0];
-	    argc--; argv++;
+	if (get_next_arg_val(&argc, &argv, "--ssh-command", &ssh_command))
 	    continue;
-	}
-	if (strcmp(argv[1], "--") == 0) {
-	    argv[1] = argv[0];
-	    argc--; argv++;
-	    break;
-	}
-	if (argv[1][0] == '-' && argv[1][1] == '-')
-	    die("Unregognized option '%s'\n" "If you want to pass that to '%s'"
-		", prefix it with option '--'",
-		argv[1], ssh_command? ssh_command: "ssh");
 	break;
     }
+    if (ssh_command == null) {
+	memcpy(ssh_default_cmd, "ssh", 4);
+	ssh_command = ssh_default_cmd;
+    }
+    if (argv[0] == null)
+	die("Args missing."
+	    " See help of '%s' how to provide those", ssh_command);
+
+    if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] != '\0')
+	die("Unregognized option '%s'\n" "If you want to pass that to '%s',"
+	    " prefix it with option '--'", argv[0], ssh_command);
 
     const char * lsn, *rsn, *rid;
 
@@ -1025,11 +1064,6 @@ int main(int argc, char ** argv)
     }
 
     snprintf(G.socket_file, sizeof G.socket_file, "%s/X%s", sockdir, lsn);
-
-    if (ssh_command == null) {
-	memcpy(ssh_default_cmd, "ssh", 4);
-	ssh_command = ssh_default_cmd;
-    }
 
     (void)close(3);
     int sshfd = sshconn(ssh_command, argv, rid, rsn);
