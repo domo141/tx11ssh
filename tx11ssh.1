@@ -1,0 +1,116 @@
+.\" Hey, EMACS: -*- nroff -*-
+.\"
+.\"     Copyright (c) 2013 Tomi Ollila
+.\"         All rights reserved
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\"
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\"
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+.\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+.\" THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+.\" PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+.\" CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+.\" EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+.\" PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+.\" PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+.\" LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+.\" NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+.\" SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+.\" man groff_man
+
+.TH tx11ssh 1 2013-02-26 "tx11ssh 0.99"
+\
+.SH NAME
+tx1ssh \- tunnel X11 traffic over ssh connection
+\
+.SH SYNOPSIS
+.B tx11ssh +
+.RI [:[nums][:numd]] \ [--ssh-command \ command] \ args
+.P
+.B tx11ssh -
+.RI [:[nums][:numd]] \ [--ssh-command \ command] \ args
+.br
+\
+.SH DESCRIPTION
+
+\fBtx11ssh\fP joo
+
+joo2
+
+hoo3
+\
+.SH OPTIONS
+.TP
+.B \fI[:[nums][:numd]]\fP
+joo joo 123
+.TP
+.B --\fIssh-command\fP command
+eoi eo e 1234
+\
+.SH DETACHING tx1ssh
+
+Perfect "detaching" from shell is impossible to implement in
+rx11ssh since one needs to detach from control terminal too.
+If detaching is postponed after ssh tunnel is created, the
+ssh process cannot be detached (anymore). If detach is done
+before executing ssh, interactive authentication methods on
+terminal cannot be done anymore.
+Therefore detaching, whenever anyone wants to do so, can be
+done at least with the the help of following commands(*):
+
+Non-interactive:
+
+.PD 0
+nohup setsid rx11ssh example.org > rx11ssh.log
+.P
+nohup script -a -f -c rx11ssh.c rx11ssh.log >/dev/null
+.P
+dtach -n rx11ssh-dtach-s sh -c 'exec rx11ssh example.org 2>rx11ssh.log'
+.PD
+
+Interactive, until detached:
+
+.PD 0
+dtach -c rx11ssh-dtach-s sh -c 'exec rx11ssh example.org 2>rx11ssh.log'
+.P
+dtach -c rx11ssh-dtach-s script -c rx11ssh example.org rx1ssh.log
+.P
+screen rx11ssh example.org
+.P
+tmux  rx11ssh example.org
+.PD
+
+(*) Interestingly at least in linux, both setsid(1) & script(1) escapes
+from terminal when execve'd from nohup(1)...
+\
+.SH EXAMPLES
+
+cygwin-term1$ tx1ssh + user@host
+
+cygwin-term2$ DISPLAY=:11 urxvt -fade 1 -tn rxvt-unicode
+
+
+term1$ tx1ssh - user@host
+
+term2$ ssh -f user@host env DISPLAY=:11 urxvt
+
+
+term1$ tx1ssh - user@host env LD_PRELOAD=libpreload_wrapx11.so
+
+term2$ ssh -f user@host env LD_PRELOAD=libpreload_wrapx11.so DISPLAY=:11 urxvt
+\
+.SH SEE ALSO
+.PD 0
+\fBssh\fP(1),
+\fBXserver\fP(1),
+\fBX\fP(7)
