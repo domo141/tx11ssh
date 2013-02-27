@@ -1,4 +1,74 @@
 
+In brief:
+
+fd's used
+---------
+
+local-server
+''''''''''''
+0: stdin
+1: stdout
+2: stderr
+3: ssh connection
+4: server unix domain socket
+
+local-display
+'''''''''''''
+0: stdin
+1: stdout
+2: stderr
+3: /dev/null
+4: /dev/null
+
+remote-server
+'''''''''''''
+0: ssh connection
+1: ssh connection
+2: stderr to ssh connection
+3: /dev/null
+4: server unix domain socket
+
+remote-display
+''''''''''''''
+0: ssh connection
+1: ssh connection
+2: stderr to ssh connection
+3: /dev/null
+4: /dev/null
+
+
+Fd's 5 - 255 are for channels. channel-fd mapping is kept by using dup2()
+and close() (see display_handle_server_message() for plug trick)
+
+
+tech:
+        flow control -- is needed ?
+        buffering when blocking --- ?
+
+linux$ ./usock-buffer-test 4545
+..........................
+wrote 118170 bytes. last write: -1 (26.00 * 4545)
+linux$ ./usock-buffer-test 4544
+...........................
+wrote 122688 bytes. last write: -1 (27.00 * 4544)
+
+cygwin$ ./usock-buffer-test 4313
+..............................................
+wrote 198398 bytes. last write: -1 (46.00 * 4313)
+cygwin$ ./usock-buffer-test 4544
+...............................................
+wrote 202664 bytes. last write: -1 (47.00 * 4312)
+
+
+komentoja:
+
+        lcd
+        rcd
+        lls
+        rls
+        get
+        put
+        x
 
 detach:
         nohup(1) setsid(1) rx11ssh ...
