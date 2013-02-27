@@ -8,7 +8,7 @@
 #	    All rights reserved
 #
 # Created: Sun 17 Feb 2013 14:57:05 EET too
-# Last modified: Wed 27 Feb 2013 21:04:43 EET too
+# Last modified: Wed 27 Feb 2013 22:45:30 EET too
 
 # this script tests the runtime traffic robustness of tx11ssh
 
@@ -63,7 +63,7 @@ sub copyio(**)
     return 1;
 }
 
-my $clisock = '/tmp/.X11-unix/X767';
+my $clisock = '/tmp/.X11-unix/X76';
 
 if (@ARGV) {
     if ($ARGV[0] eq  "xkilent") {
@@ -119,7 +119,7 @@ undef $clisock;
 
 die 'compile tx11ssh' unless -x 'tx11ssh';
 
-my $sockfile = '/tmp/.X11-unix/X776';
+my $sockfile = '/tmp/.X11-unix/X77';
 
 socket(SS, AF_UNIX, SOCK_STREAM, 0) or die 'socket: ', $!;
 my $sockaddr = sockaddr_un($sockfile);
@@ -159,7 +159,7 @@ unless (xfork) {
 close SS;
 
 unless (xfork) {
-    exec qw!./tx11ssh + :767:776 --ssh-command ./test-tx11ssh.pl delayer!;
+    exec qw!./tx11ssh + :76:77 --ssh-command ./test-tx11ssh.pl --ll 4 delayer!;
     die 'exec: ', $!;
 }
 

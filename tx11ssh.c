@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Mon 25 Feb 2013 23:48:56 EET too
+ * Last modified: Wed 27 Feb 2013 23:10:27 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -197,7 +197,7 @@ void init_G(const char * ident)
 #endif
 
     set_ident(ident);
-    G.infolevel = 3;
+    G.infolevel = 2;
 }
 
 static void init_comm(void)
@@ -269,7 +269,7 @@ void vout(int fd, const char * format, va_list ap)
 #define info1(...) if (G.infolevel >= 1) warn(__VA_ARGS__)
 #define info2(...) if (G.infolevel >= 2) warn(__VA_ARGS__)
 #define info3(...) if (G.infolevel >= 3) warn(__VA_ARGS__)
-#define info4(...) if (G.infolevel >= 3) warn(__VA_ARGS__)
+#define info4(...) if (G.infolevel >= 4) warn(__VA_ARGS__)
 
 void warn(const char * format, ...) GCCATTR_PRINTF(1,2);
 void warn(const char * format, ...)
@@ -308,7 +308,7 @@ void wait_for_ident(int fd, const char * ident, size_t isize)
     int l = 0;
     size_t epos = 0;
 
-    info2("Waiting identification");
+    info1("Waiting identification");
 
     while (1) {
 	l = read(fd, buf, sizeof buf);
@@ -376,9 +376,10 @@ void xreadfully(int fd, void * buf, ssize_t len)
     }
 }
 
-bool to_socket(int sfd, void * data, size_t datalen)
+bool to_socket(int sd, void * data, size_t datalen)
 {
-    ssize_t wlen = write(sfd, data, datalen);
+    ssize_t wlen = write(sd, data, datalen);
+    info4("channel %d:%d %jd bytes of data written", sd, G.chnlcntr[sd], wlen);
     if (wlen == (ssize_t)datalen)
 	return true;
 
@@ -397,20 +398,20 @@ bool to_socket(int sfd, void * data, size_t datalen)
 	buf += wlen;
 	datalen -= wlen;
 
-	wlen = write(sfd, buf, datalen);
+	wlen = write(sd, buf, datalen);
 	if (errno != EAGAIN && errno != EWOULDBLOCK) {
-	    warn("Channel %d fd gone ...:", sfd);
+	    warn("channel %d fd gone ...:", sd);
 	    return false;
 	}
 
 	if (wlen == (ssize_t)datalen) {
-	    info2("Writing data to %d took %d tries", sfd, tries);
+	    info2("Writing data to %d took %d tries", sd, tries);
 	    return true;
 	}
-	d1(("%d: wlen %d (of %u):", sfd, (int)wlen, (unsigned int)datalen));
+	d1(("%d: wlen %d (of %u):", sd, (int)wlen, (unsigned int)datalen));
     } while (++tries < 100); // 100 times makes that 10 sec total.
 
-    info1("Peer at %d too slow to read traffic. dropping", sfd);
+    info1("peer at %d too slow to read traffic. dropping", sd);
     return false;
 }
 
@@ -421,6 +422,9 @@ void mux_eof_to_netpipe(int fd, int chnl)
     hdr[1] = G.chnlcntr[chnl];
     hdr[2] = 0;
     hdr[3] = 0;
+
+    info4("channel %d:%d mux eof (to fd %d)", chnl, hdr[1], fd);
+
     if (write(fd, hdr, 4) != 4)
 	die("write() to net failed:");
 }
@@ -441,7 +445,8 @@ void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
     iov[1].iov_base = data;
     iov[1].iov_len = datalen;
 
-    d0(("%jd bytes to chnl %d via fd %d", datalen, chnl, fd));
+    info4("channel %d:%d mux %jd bytes (to fd %d)",
+	  chnl, G.chnlcntr[chnl], datalen, fd);
 
     if (writev(fd, iov, 2) != (ssize_t)datalen + 4)
 	die("writev() to net failed:");
@@ -454,15 +459,16 @@ int from_netpipe(int fd, uint8_t * chnl, uint8_t * cntr, char * data)
     xreadfully(fd, hdr, 4);
     *chnl = ((unsigned char *)hdr)[0];
     *cntr = ((unsigned char *)hdr)[1];
-    int dlen = ntohs(hdr[1]);
-    if (dlen > 16384)
-	die("Protocol error: server message '%d' too long\n", dlen);
+    int len = ntohs(hdr[1]);
+    if (len > 16384)
+	die("Protocol error: server message '%d' too long\n", len);
 
-    d0(("%d bytes for channel %d", dlen, *chnl));
+    d0(("channel %d: expect %d bytes", *chnl, len));
 
-    if (dlen)
-	xreadfully(fd, data, dlen);
-    return dlen;
+    if (len)
+	xreadfully(fd, data, len);
+    info4("channel %d:%d demuxed %d bytes (from fd %d)", *chnl,*cntr, len,fd);
+    return len;
 }
 
 void close_socket_and_remap(int sd)
@@ -472,6 +478,7 @@ void close_socket_and_remap(int sd)
     int o = G.chnl2pfd[sd];
     G.chnl2pfd[sd] = 0;
 
+    info4("closing channel %d:%d", sd, G.chnlcntr[sd]);
     G.chnlcntr[sd]++;
 
     d2(("remap: sd %d, o %d, nfds %d, cntr %d", sd, o, G.nfds,G.chnlcntr[sd]));
@@ -493,13 +500,15 @@ int from_socket_to_netpipe(int pfdi, int netfd)
     char buf[16384];
     int fd = G.pfds[pfdi].fd;
     int len = read(fd, buf, sizeof buf);
+
+    //info4("channel %d:%d read %d bytes", fd, G.chnlcntr[fd], len);
     d0(("%d %d %d -- read %d", fd, pfdi, G.chnl2pfd[fd], len));
+
     if (len <= 0) {
 	if (len < 0)
 	    warn("read from %d failed, closing:", fd);
 	else
-	    // change to info or verbose tjsp, info hjuva
-	    info2("EOF from %d. closing", fd);
+	    info2("EOF for %d:%d. closing", fd, G.chnlcntr[fd]);
 
 	mux_eof_to_netpipe(netfd, fd);
 	close_socket_and_remap(fd);
@@ -548,6 +557,12 @@ void remote_set_socket_file(char * arg)
 	die("'%s': display socket number too large", arg);
 
     snprintf(G.socket_file, sizeof G.socket_file, "%s/X%s", sockdir, arg);
+}
+
+void set_infolevel(char * arg)
+{
+    if (arg && arg[0] >= '0' && arg[0] <= '9')
+	G.infolevel = arg[0] - '0';
 }
 
 #if SERVER
@@ -605,7 +620,7 @@ int sshconn(char * ssh_command, char * argv[],
 	    close(sv[1]);
 
 #define args_max 200
-	char * av[args_max + 5];
+	char * av[args_max + 6];
 	int i;
 	argv--;
 	for (i = 1; i < args_max && argv[i]; i++)
@@ -624,6 +639,8 @@ int sshconn(char * ssh_command, char * argv[],
 	char dnumstr[8];
 	strcpy(dnumstr, socknum);
 	av[i++] = dnumstr;
+	char ilevel[] = { G.infolevel + '0', '\0' };
+	av[i++] = ilevel;
 	av[i] = null;
 	d0(("execvp %s [ %s, %s, %s, %s... ]", av[0],av[0],av[1],av[2],av[3]));
 	execvp(ssh_command, av);
@@ -646,12 +663,12 @@ void server_handle_display_message(int rfdi, int rfdo)
     d1(("chnl %d, cntr %d, len %d (%d)", chnl, cntr, len, G.nfds));
 
     if (cntr != G.chnlcntr[chnl]) {
-	info3("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
-	     chnl, cntr, G.chnlcntr[chnl], len);
+	info3("data to EOF'd channel %d:%d (!= %d) (%d bytes). dropped",
+	      chnl, cntr, G.chnlcntr[chnl], len);
 	return;
     }
     if (len == 0) {
-	info2("EOF from %d. closing", chnl);
+	info2("EOF for %d:%d. closing", chnl, cntr);
 	close_socket_and_remap(chnl);
 	return;
     }
@@ -687,7 +704,7 @@ void server_loop(int rfdi)
     G.pfds[1].fd = 4;
     G.nfds = 2;
 
-    info2("Initialization done");
+    info1("Initialization done");
 
     // if stdin fd 0, then use stdout (fd 1)
     int rfdo = rfdi? rfdi: 1;
@@ -714,7 +731,7 @@ void server_loop(int rfdi)
 	    d1(("%d = accept(4, ...)", sd));
 	    if (sd > 255) {
 		//if (G.nfds == sizeof G.pfds / sizeof G.pfds[0]) {
-		warn("Connection limit reached");
+		warn("connection limit reached");
 		close(sd);
 	    }
 	    else {
@@ -732,6 +749,7 @@ void remote_server(char ** av)
     set_ident("remote-s");
 
     remote_set_socket_file(av[1]);
+    set_infolevel(av[2]);
 
     if (write(1, server_ident, sizeof server_ident) != sizeof server_ident)
 	die("Could not send server ident:");
@@ -802,23 +820,23 @@ void display_handle_server_message(int rfdi, int rfdo)
     d1(("chnl %d, cntr %d, len %d, pfdi %d(/%d)", chnl,cntr,len,pfdi,G.nfds));
 
     if (cntr != G.chnlcntr[chnl]) {
-	info3("Message to old channel %d (cntr %d != %d) (%d bytes). dropped",
+	info3("data to EOF'd channel %d (cntr %d != %d) (%d bytes). dropped",
 	      chnl, cntr, G.chnlcntr[chnl], len);
 	return;
     }
     if (pfdi == 0) {
 	if (chnl < 5) {
-	    warn("New connection %d less than 5. Drop it", chnl);
+	    warn("new connection %d less than 5. Drop it", chnl);
 	    return;
 	}
 	if (len == 0) {
-	    info1("New connection %d EOF'd immediately", chnl);
+	    info1("new connection %d EOF'd immediately", chnl);
 	    return;
 	}
 	int fd = xuconnect(G.socket_file);
 	if (fd != chnl) {
 	    if (fd < 0) {
-		warn("Failed to connect %s:", G.socket_file);
+		warn("failed to connect %s:", G.socket_file);
 		mux_eof_to_netpipe(rfdo, chnl);
 		return;
 	    }
@@ -834,7 +852,7 @@ void display_handle_server_message(int rfdi, int rfdo)
 	d2(("new chnl %d, nfds %d", fd, G.nfds));
     }
     if (len == 0) {
-	info2("EOF for %d. closing", chnl);
+	info2("EOF for %d:%d. closing", chnl, cntr);
 	close_socket_and_remap(chnl);
 	return;
     }
@@ -880,6 +898,7 @@ void remote_display(char ** av)
     set_ident("remote-d");
 
     remote_set_socket_file(av[1]);
+    set_infolevel(av[2]);
 
     if (write(1, display_ident, sizeof display_ident) != sizeof display_ident)
 	die("Could not send server ident:");
@@ -960,7 +979,7 @@ int main(int argc, char ** argv)
     if (argc < 2) {
 	G.component_identlen = 0;
 #define NL "\n"
-	die("\n\nUsage: %s (+|-) [:[nums][:numd]] [--ssh-command command] args"
+	die("\n\nUsage: %s (+|-) [:[nums][:numd]] [--ssh-command command] [--ll num] args"
 	    NL
 	    NL "  +: open (X) windows to remote machine display after connecting"
 	    NL "  -: open (X) windows from remote machine to local display after connecting"
@@ -969,6 +988,7 @@ int main(int argc, char ** argv)
 	    NL "  numd: display socket to connect, 0 by default"
 	    NL
 	    NL "  --ssh-command: command instead of 'ssh' to use for tunnel"
+	    NL "  --ll:          verbosity level: range 0-4,  2 by default"
 	    NL
 	    NL " args: see help of 'ssh' (or --ssh-command) for what arguments the command"
 	    NL "       accepts. Note that all args aren't useful (like '-f' for ssh)."
@@ -990,6 +1010,7 @@ int main(int argc, char ** argv)
     argc--; argv++;
 
     char * ssh_command = null;
+    char * infolevel = null;
     char ssh_default_cmd[8];
     const char * ssn = "11";
     const char * dsn = "0";
@@ -1022,6 +1043,8 @@ int main(int argc, char ** argv)
 	}
 	if (get_next_arg_val(&argc, &argv, "--ssh-command", &ssh_command))
 	    continue;
+	if (get_next_arg_val(&argc, &argv, "--ll", &infolevel))
+	    continue;
 	break;
     }
     if (ssh_command == null) {
@@ -1035,6 +1058,8 @@ int main(int argc, char ** argv)
     if (argv[0][0] == '-' && argv[0][1] == '-' && argv[0][2] != '\0')
 	die("Unregognized option '%s'\n" "If you want to pass that to '%s',"
 	    " prefix it with option '--'", argv[0], ssh_command);
+
+    set_infolevel(infolevel);
 
     const char * lsn, *rsn, *rid;
 
