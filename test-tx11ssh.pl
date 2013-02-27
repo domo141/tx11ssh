@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # -*- cperl -*-
-# $ test-rx11ssh.pl $
+# $ test-tx11ssh.pl $
 #
 # Author: Tomi Ollila -- too ät iki piste fi
 #
@@ -8,7 +8,9 @@
 #	    All rights reserved
 #
 # Created: Sun 17 Feb 2013 14:57:05 EET too
-# Last modified: Mon 18 Feb 2013 18:01:52 EET too
+# Last modified: Wed 27 Feb 2013 21:04:43 EET too
+
+# this script tests the runtime traffic robustness of tx11ssh
 
 use 5.8.1;
 use strict;
@@ -87,7 +89,7 @@ if (@ARGV) {
 	    open STDIN, '>&', \*S2 or die 'Cannot dup S2 ', $!;
 	    open STDOUT, '>&', \*S2 or die 'Cannot dup S2 ', $!;
 	    close S2;
-	    exec './rx11ssh', @ARGV;
+	    exec './tx11ssh', @ARGV;
 	    die 'exec: ', $!;
 	}
 	close S2;
@@ -115,7 +117,7 @@ if (@ARGV) {
 die "'$clisock' exists. remove and try again if stale\n" if -e $clisock;
 undef $clisock;
 
-die 'compile rx11ssh' unless -x 'rx11ssh';
+die 'compile tx11ssh' unless -x 'tx11ssh';
 
 my $sockfile = '/tmp/.X11-unix/X776';
 
@@ -157,7 +159,7 @@ unless (xfork) {
 close SS;
 
 unless (xfork) {
-    exec qw!./rx11ssh :767:776 --ssh-command ./test-rx11ssh.pl delayer!;
+    exec qw!./tx11ssh + :767:776 --ssh-command ./test-tx11ssh.pl delayer!;
     die 'exec: ', $!;
 }
 
@@ -166,7 +168,7 @@ syswrite STDERR, "\n\n\n\n\n\n\n\n\n\n";
 while (1) {
     usleep(1e5 + int rand 1e5);
     unless (xfork) {
-	exec qw!./test-rx11ssh.pl xkilent!;
+	exec qw!./test-tx11ssh.pl xkilent!;
 	die 'exec: ', $!;
     }
 }
