@@ -1,7 +1,7 @@
 #if 0 /*
 	archos=`uname -s -m | awk '{ print tolower($2) "-" tolower($1) }'`
 	libc_so=`ldd /usr/bin/env | awk '/libc.so/ { print $3 }'`
-	bn=`basename "$0" .c`; lbn=$bn-$archos dlbn=$bn-dbg-$archos
+	bn=`basename "$0" .c | sed s/ldpreload_//`; lbn=$bn-$archos
 	trap 'rm -f $bn.o' 0
 	WARN="-Wall -Wstrict-prototypes -pedantic -Wno-long-long"
 	WARN="$WARN -Wcast-align -Wpointer-arith " # -Wfloat-equal #-Werror
@@ -14,7 +14,7 @@
       */
 #endif
 /*
- * $ libpreload_wrapx11sock.c $
+ * $ ldpreload_wrapx11usock.c $
  *
  * Author: Tomi Ollila -- too ät iki piste fi
  *
@@ -22,7 +22,7 @@
  *          All rights reserved
  *
  * Created: Sun 24 Feb 2013 17:42:17 EET too
- * Last modified: Tue 26 Feb 2013 14:22:24 EET too
+ * Last modified: Wed 27 Feb 2013 21:01:34 EET too
  */
 
 #include <unistd.h>
