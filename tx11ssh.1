@@ -25,42 +25,101 @@
 .\" LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 .\" NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 .\" SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+.\"
 .\" man groff_man
-
-.TH tx11ssh 1 2013-02-26 "tx11ssh 0.99"
-\
+.\"
+.TH TX11SSH 1 2013-02-26 "tx11ssh 0.99" "User Commands"
+.\"
 .SH NAME
 tx1ssh \- tunnel X11 traffic over ssh connection
-\
+.\"
 .SH SYNOPSIS
 .B tx11ssh +
-.RI [:[nums][:numd]] \ [--ssh-command \ command] \ args
+.RI [:[nums][:numd]] \ [--ssh-command \ command] \ [--ll \ num] \ args
 .P
 .B tx11ssh -
-.RI [:[nums][:numd]] \ [--ssh-command \ command] \ args
+.RI [:[nums][:numd]] \ [--ssh-command \ command] \ [--ll \ num] \ args
 .br
-\
+.\"
 .SH DESCRIPTION
 
-\fBtx11ssh\fP joo
-
-joo2
-
-hoo3
-\
+\fBtx11ssh\fP provides a way to tunnel X11 traffic over ssh connection,
+in either direction from initiator's poing of view:
+.TP 4
+.B +
+after connection is made, open windows from local clients to remote display
+.TP 4
+.B -
+after connection is made, open windows from remote clients to local display
+.PP
+The \fB+\fP option is convenient when ssh connection cannot be made in the
+direction for standard X11 forwarding provided by ssh(1) and the \fB-\fP
+is useful when sshd(8) is not configured to support X11 forwarding.
+.\"
 .SH OPTIONS
-.TP
+.TP 4
 .B \fI[:[nums][:numd]]\fP
-joo joo 123
-.TP
+Use these numbers in unix sockets created. The first number 'nums' is the
+server socket to be created (i.e. /tmp/.X11-unix/X<nums>) and the second
+display server socket where co connect. Default values are 11 and 0,
+respectively. Either can be omitted; e.g :12 and ::1 are accepted.
+.TP 4
 .B --\fIssh-command\fP command
-eoi eo e 1234
-\
-.SH DETACHING tx1ssh
+Execute command instead of 'ssh' for tunnel creation
+.TP 4
+.B --\fIll\fP num
+The "loglevel" of tx11ssh. With value 0 only severe warnings are printed
+to stderr. With value 4 all messages are printed. Default value is 2.
+.\"
+.SH SECURITY
+
+Currently credentials of clients connecting to server socket
+are not checked (poor documentation, especially on portability
+point of view). Use only on 'safe' systems. You're been warned
+.\"
+.SH EXAMPLES
+
+Case 1: One wants to open windows from Windows machine on a Unix desktop;
+but configuring sshd to work on windows (cygwin) environment is nontrivial
+thing to do. From one Cygwin Terminal open x11ssh tunnel to unix host and
+from another execute urxvt terminal using display 11 (which is tx11ssh
+default) to open the urxvt terminal window to remote X display.
+
+.RS 2
+cygwin-term1$ tx11ssh + user@unixhost
+.P
+cygwin-term2$ DISPLAY=:11 urxvt -fade 1 -tn rxvt-unicode &
+.RE
+
+Case 2: Remote sshd is not configured to support X11 forwarding, therefore
+it has to be done by "ourselves". The '-' option of tx11ssh makes the X11
+unix domain server socket available on a remote host; the command line on
+second terminal below uses the display 11 (tx11ssh default) to open
+the window of remote command on local X display.
+
+.RS 2
+term1$ tx11ssh - user@host
+.P
+term2$ ssh -f user@host env DISPLAY=:11 urxvt
+.RE
+
+Case 3: This is like case 2, but instead of using /tmp/.X11-unix/X11 for
+the X11 display unix domain socket, use $HOME/.ssh/X11 instead. The
+wrapx11usock preload library does the path mangling to achieve this.
+The reasons one might need this includes: security, multiuser support
+and filesystem permissions. The (source of) wrapx11usock.so can be found
+in the source archive of tx11ssh.
+
+.RS 2
+t1$ tx11ssh - user@host env LD_PRELOAD=wrapx11usock.so
+.P
+t2$ ssh -f user@host env LD_PRELOAD=wrapx11usock.so DISPLAY=:11 urxvt
+.RE
+.\"
+.SH "DETACHING tx1ssh"
 
 Perfect "detaching" from shell is impossible to implement in
-rx11ssh since one needs to detach from control terminal too.
+tx11ssh since one needs to detach from control terminal too.
 If detaching is postponed after ssh tunnel is created, the
 ssh process cannot be detached (anymore). If detach is done
 before executing ssh, interactive authentication methods on
@@ -70,47 +129,37 @@ done at least with the the help of following commands(*):
 
 Non-interactive:
 
+.RS 2
 .PD 0
-nohup setsid rx11ssh example.org > rx11ssh.log
+nohup setsid tx11ssh + remote > tx11ssh.log
 .P
-nohup script -a -f -c rx11ssh.c rx11ssh.log >/dev/null
+nohup script -a -f -c 'tx11ssh + remote' tx11ssh.log >/dev/null
 .P
-dtach -n rx11ssh-dtach-s sh -c 'exec rx11ssh example.org 2>rx11ssh.log'
+dtach -n tx11ssh-dtach-s sh -n 'exec tx11ssh + remote 2>tx11ssh.log'
 .PD
+.RE
 
 Interactive, until detached:
 
+.RS 2
 .PD 0
-dtach -c rx11ssh-dtach-s sh -c 'exec rx11ssh example.org 2>rx11ssh.log'
+dtach -c tx11ssh-dtach-s sh -c 'exec tx11ssh + remote 2>tx11ssh.log'
 .P
-dtach -c rx11ssh-dtach-s script -c rx11ssh example.org rx1ssh.log
+dtach -c tx11ssh-dtach-s script -c 'tx11ssh + remote' tx11ssh.log
 .P
-screen rx11ssh example.org
+screen tx11ssh + remote
 .P
-tmux  rx11ssh example.org
+tmux tx11ssh + remote
 .PD
-
-(*) Interestingly at least in linux, both setsid(1) & script(1) escapes
+.RE
+.\"
+.TP 4
+.RI (*)
+Interestingly at least in linux, both setsid(1) & script(1) escapes
 from terminal when execve'd from nohup(1)...
-\
-.SH EXAMPLES
+.\"
+.SH "SEE ALSO"
 
-cygwin-term1$ tx1ssh + user@host
-
-cygwin-term2$ DISPLAY=:11 urxvt -fade 1 -tn rxvt-unicode
-
-
-term1$ tx1ssh - user@host
-
-term2$ ssh -f user@host env DISPLAY=:11 urxvt
-
-
-term1$ tx1ssh - user@host env LD_PRELOAD=libpreload_wrapx11.so
-
-term2$ ssh -f user@host env LD_PRELOAD=libpreload_wrapx11.so DISPLAY=:11 urxvt
-\
-.SH SEE ALSO
-.PD 0
 \fBssh\fP(1),
 \fBXserver\fP(1),
 \fBX\fP(7)
