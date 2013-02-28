@@ -4,22 +4,22 @@ CC=gcc
 
 SHELL = /bin/sh
 
-all: rx11ssh
+all: tx11ssh
 
-rx11ssh: force # to make sure we have 'production' version
-	sh rx11ssh.c CC=$(CC) p
+tx11ssh: force # to make sure we have 'production' version
+	sh tx11ssh.c CC=$(CC) p
 
 d: force
-	sh rx11ssh.c CC=$(CC) d
+	sh tx11ssh.c CC=$(CC) d
 
 itest: d # infinite test
-	./test-rx11ssh.pl
+	./test-tx11ssh.pl
 
 ltest1: d # local test
-	./rx11ssh --ssh-command ./rx11ssh none
+	./tx11ssh + --ssh-command ./tx11ssh none
 
 ltest2: d # local test using ssh
-	./rx11ssh 127.1
+	./tx11ssh - 127.1
 
 usbtest: usock-buffer-test
 	./usock-buffer-test 4120
@@ -29,7 +29,7 @@ usock-buffer-test: usock-buffer-test
 
 
 clean distclean: force
-	rm -f rx11ssh usock-buffer-test *~
+	rm -f tx11ssh usock-buffer-test *~
 
 .PHONY: force
 
