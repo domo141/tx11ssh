@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Thu 28 Feb 2013 12:17:48 EET too
+ * Last modified: Thu 28 Feb 2013 20:39:24 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -122,10 +122,10 @@ ssize_t writev(int fd, const struct ciovec * iov, int iovcnt);
 #define BE }
 
 const char server_ident[] = {
-    '\0','r','x','1','1','-','s','e','r','v','e','r','-','0','\n'
+    '\0','r','x','1','1','-','s','e','r','v','e','r','-','0','\r','\n'
 };
 const char display_ident[] = {
-    '\0','r','x','1','1','-','d','i','s','p','l','a','y','-','0','\n'
+    '\0','r','x','1','1','-','d','i','s','p','l','a','y','-','0','\r','\n'
 };
 
 #if DEVEL
@@ -179,13 +179,13 @@ void init_G(const char * ident)
     struct ciovec * ciov = null;
 
     if (sizeof *iov != sizeof *ciov)
-	die("iovec size %lu different than ciovec size %lu",
+	die("iovec size %zu different than ciovec size %zu",
 	    sizeof *iov, sizeof *ciov);
     if (sizeof iov->iov_base != sizeof ciov->iov_base)
-	die("iov_base sizes differ: %lu != %lu",
+	die("iov_base sizes differ: %zu != %zu",
 	    sizeof iov->iov_base, sizeof ciov->iov_base);
     if (sizeof iov->iov_len != sizeof ciov->iov_len)
-	die("iov_len sizes differ: %lu != %lu",
+	die("iov_len sizes differ: %zu != %zu",
 	    sizeof iov->iov_len, sizeof ciov->iov_len);
     if ((const void *)&iov->iov_base != (const void *)&ciov->iov_base)
 	die("iov_base offsets differ: %p != %p",
@@ -305,13 +305,40 @@ void wait_for_ident(int fd, const char * ident, size_t isize)
 #else
     char buf[7]; // for testing purposes
 #endif
-    int l = 0;
     size_t epos = 0;
 
+    // attempted:
+    // LD_PRELOAD=./fake_isatty0...so ./tx11ssh -t -e none host1 ssh host2
+    // for some reason last char '\n' from remote ident does not arrive --
+    // meaning the tunnel is not 8-bit clean (next step: base64-coding data ?).
+#if 1
+    struct pollfd pfds[2];
+    pfds[0].fd = fd; pfds[0].events = POLLIN;
+    int nfds = (fd == 0)? 1: 2;
+    pfds[1].fd = 0; pfds[1].events = 0;
+#endif
     info1("Waiting identification");
 
-    while (1) {
-	l = read(fd, buf, sizeof buf);
+#if 1
+    while (poll(pfds, nfds, -1) > 0)
+#else
+    while (1)
+#endif
+    {
+#if 1
+	// initial IO, passwords, etc... //
+	if (nfds == 2 && pfds[1].revents) {
+	    int l = read(0, buf, sizeof buf);
+	    if (l <= 0) die("read:"); // XXX fix.
+	    write(fd, buf, l);
+	}
+	if (! pfds[0].revents)
+	    continue;
+	// activate reading of stdin at first read from ssh, when applicaple.
+	// so that possible first passwd request via /dev/tty gets through.
+	pfds[1].events = POLLIN;
+#endif
+	int l = read(fd, buf, sizeof buf);
 	if (l <= 0) {
 	    if (l < 0) {
 		if (errno == EINTR)
@@ -320,7 +347,7 @@ void wait_for_ident(int fd, const char * ident, size_t isize)
 	    }
 	    die("EOF while waiting ident");
 	}
-	d1(("read %d bytes from %d (epos=%jd)", l, fd, epos));
+	d1(("read %d bytes from %d (epos=%zd)", l, fd, epos));
 	char * p = buf;
 	if (epos == 0) {
 	    p = memchr(p, ident[epos], l);
@@ -331,6 +358,7 @@ void wait_for_ident(int fd, const char * ident, size_t isize)
 	    l -= (p - buf);
 	}
 	while (l > 0 && epos < isize) {
+	    d1(("epos %zd isize %zd", epos, isize));
 	    if (*p == ident[epos]) {
 		p++;
 		epos++;
@@ -347,6 +375,7 @@ void wait_for_ident(int fd, const char * ident, size_t isize)
 	if (epos == isize)
 	    return; // XXX check that l == 0 //
     }
+    die("poll:"); /// XXX ///
 }
 
 void xreadfully(int fd, void * buf, ssize_t len)
@@ -379,7 +408,7 @@ void xreadfully(int fd, void * buf, ssize_t len)
 bool to_socket(int sd, void * data, size_t datalen)
 {
     ssize_t wlen = write(sd, data, datalen);
-    info4("channel %d:%d %jd bytes of data written", sd, G.chnlcntr[sd], wlen);
+    info4("channel %d:%d %zd bytes of data written", sd, G.chnlcntr[sd], wlen);
     if (wlen == (ssize_t)datalen)
 	return true;
 
@@ -445,7 +474,7 @@ void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
     iov[1].iov_base = data;
     iov[1].iov_len = datalen;
 
-    info4("channel %d:%d mux %jd bytes (to fd %d)",
+    info4("channel %d:%d mux %zd bytes (to fd %d)",
 	  chnl, G.chnlcntr[chnl], datalen, fd);
 
     if (writev(fd, iov, 2) != (ssize_t)datalen + 4)
@@ -988,7 +1017,7 @@ int main(int argc, char ** argv)
 	    NL "  numd: display socket to connect, 0 by default"
 	    NL
 	    NL "  --ssh-command: command instead of 'ssh' to use for tunnel"
-	    NL "  --ll:          verbosity level: range 0-4,  2 by default"
+	    NL "  --ll:          verbosity level: range 0-4, 2 by default"
 	    NL
 	    NL " args: see help of 'ssh' (or --ssh-command) for what arguments the command"
 	    NL "       accepts. Note that all args aren't useful (like '-f' for ssh)."
