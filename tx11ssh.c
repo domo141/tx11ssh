@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Wed 27 Feb 2013 23:10:27 EET too
+ * Last modified: Thu 28 Feb 2013 12:17:48 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -1071,10 +1071,14 @@ int main(int argc, char ** argv)
 
 	// this can only be checked when "x server" socket to be bound is local
 	if (stat(G.socket_file, &st) == 0) {
+#ifdef S_ISSOCK
 	    if (S_ISSOCK(st.st_mode))
 		warn("Socket file '%s' exists and may be live", G.socket_file);
 	    else
 		warn("File '%s' exists but it is not socket", G.socket_file);
+#else
+	    warn("File '%s' exists (and may be socket file)", G.socket_file);
+#endif
 	    die("Remove the file and try again if the file is stale");
 	}
 	if (errno != ENOENT)
