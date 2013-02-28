@@ -74,7 +74,7 @@ X11 forwarding.
 Use these numbers in unix sockets created. The first number \fInums\fR is the
 server socket to be created (i.e. /tmp/.X11-unix/X\fInums\fR) and the second
 \fInumd\fR display server socket where co connect. Default values are 11
-and 0, respectively. Either can be omitted; e.g :\fI12\fR and ::\fI1\fR are
+and 0, respectively. Either can be omitted; e.g. :\fI12\fR and ::\fI1\fR are
 accepted.
 .TP 4
 .RI --ssh-command \ \fIcommand\fR
@@ -92,9 +92,12 @@ paths or \fI-f/n\fR flags given to ssh...).
 .\"
 .SH SECURITY
 
-Currently credentials of clients connecting to server socket
-are not checked (poor documentation, especially on portability
-point of view). Use only on 'safe' systems. You're been warned
+The normal X security concerns apply here, e.g. \fBxinput\fR(1) can be used
+to sneak X events of other windows. There is uid check for the X client
+connecting to the X unix domain socket done; whether this is enough one
+have to judge itself. Use of wrapx11usock.so shown below will at least
+hide the X socket from other users (security by obscurity when thinking
+about root users).
 .\"
 .SH EXAMPLES
 

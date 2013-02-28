@@ -1,5 +1,11 @@
 -*- text -*-
 
+tl;dr
+
+Run `tx11ssh --ll 4 remote` and observe the output while running
+X applications -- and after a while doing so continue reading...
+
+
 In brief:
 
 fd's used
