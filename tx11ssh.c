@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Thu 28 Feb 2013 20:39:24 EET too
+ * Last modified: Thu 28 Feb 2013 21:34:46 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -59,6 +59,10 @@
 
 #define _POSIX_C_SOURCE 200112L // for S_ISSOCK
 //efine _POSIX_C_SOURCE 200809L // for strdup
+
+#if __linux__ || __CYGWIN32__
+#define _GNU_SOURCE 1	// for ucred -- remember to outcomment time to time
+#endif			// to check other things...
 
 #if DEVEL
 #define CIOVEC_HAX 1
@@ -596,6 +600,42 @@ void set_infolevel(char * arg)
 
 #if SERVER
 
+// generic!
+bool checkpeerid(int sd)
+{
+#if __linux__ || __CYGWIN32__
+    struct ucred cr;
+    socklen_t len = sizeof cr;
+    if (getsockopt(sd, SOL_SOCKET, SO_PEERCRED, &cr, &len) < 0) {
+	warn("getsockopt SO_PEERCRED on channel %d failed:", sd);
+	return false;
+    }
+    // XXX is it correct to check uid uid (and not euid...)
+    if (cr.uid != getuid()) {
+    warn("peer uid %u not %u on channel %d", (uint)cr.uid, (uint)getuid(), sd);
+	return false;
+    }
+    return true;
+#elif __XXXsolaris__ // fixme, when known what and how...
+    //getpeerucred(...);
+    warn("peer check unumplemented");
+    return false;
+#else
+    // fallback default //
+    int euid, egid;
+    if (getpeereid(sd, &euid, &egid) < 0) {
+	warn("getpeereid on channel %d failed:", sd);
+	return false;
+    }
+    if (eid != getuid()) {
+	warn("peer uid %d not %d on channel %d", eid, getuid(), sd);
+	return false;
+    }
+    return true;
+#endif
+}
+
+
 int xubind_listen(const char * path)
 {
     int sd = xmkusock();
@@ -758,7 +798,9 @@ void server_loop(int rfdi)
 	if (G.pfds[1].revents) { /* XXX should check POLLIN */
 	    int sd = accept(4, null, 0);
 	    d1(("%d = accept(4, ...)", sd));
-	    if (sd > 255) {
+	    if (! checkpeerid(sd))
+		close(sd);
+	    else if (sd > 255) {
 		//if (G.nfds == sizeof G.pfds / sizeof G.pfds[0]) {
 		warn("connection limit reached");
 		close(sd);
