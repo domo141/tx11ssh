@@ -22,13 +22,14 @@
  *          All rights reserved
  *
  * Created: Sun 24 Feb 2013 17:42:17 EET too
- * Last modified: Wed 27 Feb 2013 21:01:34 EET too
+ * Last modified: Thu 28 Feb 2013 18:53:41 EET too
  */
 
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 //#include <fcntl.h>
 #include <errno.h>
 
@@ -44,36 +45,26 @@ const char server_socket_to_be_wrapped[] = "/tmp/.X11-unix/X11";
 char server_socket_wrapped_path[sizeof ((struct sockaddr_un *)0)->sun_path];
 int server_socket_path_set = 0;
 
-#if (__GNUC__ >= 3)
-static void die1(const char * emsg) __attribute__ ((noreturn));
-static void die3(const char * m1, const char * m2, const char * m3)
-    __attribute__ ((noreturn));
+#if (__GNUC__ >= 4)
+void die(int ev, ...) __attribute__((sentinel)) __attribute__((noreturn));
 #endif
-
-static void die1(const char * emsg)
+void die(int ev, ...)
 {
-    // writev()... :) ! //
-    write(2, emsg, strlen(emsg));
-    write(2, "\n", 1);
-    exit(1);
-}
+    struct iovec iov[10];
+    va_list ap;
 
-// äh, too complex.
-static void die3(const char * m1, const char * m2, const char * m3)
-{
-    // writev()... :) ! //
-    write(2, m1, strlen(m1));
-    // check for '
-    write(2, " ", 1);
-    write(2, m2, strlen(m2));
-    if (m3) {
-        write(2, " ", 1);
-        write(2, m3, strlen(m3));
+    va_start(ap, ev);
+    int i = 0;
+    for (char * s = va_arg(ap, char *); s; s = va_arg(ap, char *)) {
+	iov[i].iov_base = s;
+	iov[i].iov_len = strlen(s);
+	i++;
+	if (i == sizeof iov / sizeof iov[0])
+	    break;
     }
-    write(2, "\n", 1);
-    exit(1);
+    writev(2, iov, i);
+    exit(ev);
 }
-
 
 static void * dlhandle = NULL;
 
@@ -85,7 +76,7 @@ static void dlopen_libc(void)
     dlhandle = dlopen(LIBC_SO, RTLD_LAZY);
 
     if (!dlhandle)
-        die3("dlopening libc:", dlerror(), NULL);
+        die(1, "dlopening libc failed:", dlerror(), NULL);
 }
 
 static void * dlsym_(const char * symbol)
@@ -94,7 +85,7 @@ static void * dlsym_(const char * symbol)
     char * str = dlerror();
 
     if (str != NULL)
-        die3("finding symbol: ", symbol, str);
+        die(1, "finding symbol '", symbol, "' failed:", str, NULL);
 
     return sym;
 }
@@ -103,14 +94,14 @@ static void set_server_socket_path(void)
 {
     const char * home = getenv("HOME");
     if (home == NULL)
-        die1("No 'HOME' in environment");
+        die(1, "No 'HOME' in environment", NULL);
 
     server_socket_wrapped_path[sizeof server_socket_wrapped_path-2] = '\0';
 
     snprintf(server_socket_wrapped_path, sizeof server_socket_wrapped_path,
              "%s/.ssh/X11", home);
     if (server_socket_wrapped_path[sizeof server_socket_wrapped_path-2] !='\0')
-        die3("'HOME' string '",  home, "' in environment too long");
+        die(1, "'HOME' string '",  home, "' in environment too long", NULL);
 
     server_socket_path_set = 1;
 }
