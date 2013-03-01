@@ -1,12 +1,14 @@
 -*- text -*-
 
+Brief(?) tech notes
+================
+
 tl;dr
+-----
 
 Run `tx11ssh --ll 4 remote` and observe the output while running
 X applications -- and after a while doing so continue reading...
 
-
-In brief:
 
 fd's used
 ---------
@@ -48,9 +50,21 @@ Fd's 5 - 255 are for channels. channel-fd mapping is kept by using dup2()
 and close() (see display_handle_server_message() for plug trick)
 
 
-tech:
-        flow control -- is needed ?
-        buffering when blocking --- ?
+Thoughts of flow control
+------------------------
+
+Flow control is not implemented; if an application (or X server) does
+not read it's input buffer tx11ssh will block for maximum of 10 seconds
+(after that the offending fd/channel is closed). During that 10 second
+period 1/10 second sleep is executed (max) 100 times and after each
+sleep the write to the application is attempted. POLLOUT poll(2) for
+the socket may not work as expected if there were space for less than
+the data attempted POLLOUT may be returned but write could fail returning
+-1 (again and again).
+
+By default the socket buffer is quite large. On linux ~120 000 bytes and
+cygwin (some unix socket emulation) ~200 000 bytes; probably when all
+processes get fair amount of processing time the traffic will never block...
 
 linux$ ./usock-buffer-test 4545
 ..........................
@@ -67,18 +81,20 @@ cygwin$ ./usock-buffer-test 4544
 wrote 202664 bytes. last write: -1 (47.00 * 4312)
 
 
+... running tx11ssh with default verbosity level 2 it will output
+whenever there was need for wait. To investigate whether there is
+need take more effort developing flow control with verbosity level 4
+(--ll 4) tx11ssh outputs sizes of all reads/writes from ssh/application;
+if the protocol has enough 2-way discussion ....
+
+2 stages
+
+-- 1 keep 4 counters, sent, acked, received, acked
+-- 2 when blocks, stop responding until ...
+
+
+
 --ll for usage - info for code, verbosity level as self-documenting
-
-
-SECURITY
-
-        Currently credentials of clients connecting to server socket
-        are not checked (poor documentation, especially on portability
-        point of view). Use only on 'safe' systems. You're been warned
-
-linux: use peercred
-solaris: use what there was
-rest: getpeerid()
 
 
 komentoja:
