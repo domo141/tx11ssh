@@ -22,7 +22,7 @@
  *          All rights reserved
  *
  * Created: Sun 24 Feb 2013 17:42:17 EET too
- * Last modified: Thu 28 Feb 2013 18:53:41 EET too
+ * Last modified: Fri 01 Mar 2013 16:56:36 EET too
  */
 
 #include <unistd.h>
@@ -186,7 +186,7 @@ int connect(int sockfd, const struct sockaddr * addr, socklen_t addrlen)
     memcpy(&uaddr, addr, sizeof uaddr);
     strcpy(uaddr.sun_path, server_socket_wrapped_path);
 
-    return connect_orig(sockfd, (struct sockaddr *)&uaddr, sizeof uaddr);
+    return connect_orig(sockfd, (struct sockaddr *)&uaddr, addrlen);
 }
 
 int bind(int sockfd, const struct sockaddr * addr, socklen_t addrlen)
@@ -199,5 +199,16 @@ int bind(int sockfd, const struct sockaddr * addr, socklen_t addrlen)
         *(void **)(&bind_orig) = dlsym_("bind");
     }
 
-    return bind_orig(sockfd, addr, sizeof addrlen);
+    if (strcmp(((const struct sockaddr_un*)addr)->sun_path,
+	       server_socket_to_be_wrapped) != 0)
+        return bind_orig(sockfd, addr, addrlen);
+
+    if (! server_socket_path_set)
+        set_server_socket_path();
+
+    struct sockaddr_un uaddr;
+    memcpy(&uaddr, addr, sizeof uaddr);
+    strcpy(uaddr.sun_path, server_socket_wrapped_path);
+
+    return bind_orig(sockfd, (struct sockaddr *)&uaddr, addrlen);
 }

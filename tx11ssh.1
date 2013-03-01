@@ -141,11 +141,11 @@ in the source archive of
 .B tx11ssh.
 
 .RS 2
-.I t1\fR$
-tx11ssh - user@host env LD_PRELOAD=wrapx11usock.so
+.I term1\fR$
+tx11ssh - user@host env LD_PRELOAD=./wrapx11usock.so
 .P
-.I t2\fR$
-ssh -f user@host env LD_PRELOAD=wrapx11usock.so DISPLAY=:11 urxvt
+.I term2\fR$
+ssh -f user@host env LD_PRELOAD=./wrapx11usock.so DISPLAY=:11 urxvt
 .RE
 .\"
 .SH "DETACHING tx1ssh"
