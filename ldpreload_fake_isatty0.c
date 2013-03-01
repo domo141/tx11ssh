@@ -22,7 +22,7 @@
  *          All rights reserved
  *
  * Created: Wed 27 Feb 2013 22:54:11 EET too
- * Last modified: Thu 28 Feb 2013 18:53:15 EET too
+ * Last modified: Fri 01 Mar 2013 19:50:43 EET too
  */
 
 #include <stdlib.h>
@@ -93,9 +93,9 @@ int isatty(int fd)
         dlopen_libc();
         *(void **)(&isatty_orig) = dlsym_("isatty");
     }
-    // checking 0 is enought for (open) ssh(1)
+    // fd 0 may be pipe/socket, fd2 should be the terminal (tx11ssh child ssh)
     if (fd == 0)
-	return 1;
+	fd = 2;
     return isatty_orig(fd);
 }
 
@@ -111,7 +111,7 @@ int ioctl(int fd, int request, int anything)
         dlopen_libc();
         *(void **)(&ioctl_orig) = dlsym_("ioctl");
     }
-    // fd 0 may be pipe/socket, fd2 should be the terminal
+    // fd 0 may be pipe/socket, fd2 should be the terminal (tx11ssh child ssh)
     if (fd == 0)
 	fd = 2;
 
@@ -128,7 +128,7 @@ int tcgetattr(int fd, struct termios *termios_p)
         dlopen_libc();
         *(void **)(&tcgetattr_orig) = dlsym_("tcgetattr");
     }
-    // fd 0 may be pipe/socket, fd2 should be the terminal
+    // fd 0 may be pipe/socket, fd2 should be the terminal (tx11ssh child ssh)
     if (fd == 0)
 	fd = 2;
 
