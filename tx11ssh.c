@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Thu 28 Feb 2013 21:34:46 EET too
+ * Last modified: Sat 02 Mar 2013 14:01:42 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -61,8 +61,12 @@
 //efine _POSIX_C_SOURCE 200809L // for strdup
 
 #if __linux__ || __CYGWIN32__
-#define _GNU_SOURCE 1	// for ucred -- remember to outcomment time to time
-#endif			// to check other things...
+#if DEVEL
+#define __NEED_UCRED 1	// to aid notifing portability issues when compiling
+#else
+#define _GNU_SOURCE 1	// for struct ucred
+#endif
+#endif
 
 #if DEVEL
 #define CIOVEC_HAX 1
@@ -91,6 +95,10 @@
 #include <sys/un.h>
 #include <arpa/inet.h> // for htons/ntohs
 #include <errno.h>
+
+#if __NEED_UCRED // defined for devel build, to aid noticing portability issues
+struct ucred { pid_t pid; uid_t uid; gid_t gid; }; //usr/include/bits/socket.h
+#endif
 
 #if CIOVEC_HAX
 #undef writev
@@ -600,7 +608,7 @@ void set_infolevel(char * arg)
 
 #if SERVER
 
-// generic!
+// generic, but needed only in server code!
 bool checkpeerid(int sd)
 {
 #if __linux__ || __CYGWIN32__
@@ -610,25 +618,26 @@ bool checkpeerid(int sd)
 	warn("getsockopt SO_PEERCRED on channel %d failed:", sd);
 	return false;
     }
-    // XXX is it correct to check uid uid (and not euid...)
-    if (cr.uid != getuid()) {
-    warn("peer uid %u not %u on channel %d", (uint)cr.uid, (uint)getuid(), sd);
+    int uid = (int)getuid();
+    if ((int)cr.uid != uid) {
+	warn("peer real uid %d not %d on channel %d", (int)cr.uid, uid, sd);
 	return false;
     }
     return true;
 #elif __XXXsolaris__ // fixme, when known what and how...
     //getpeerucred(...);
-    warn("peer check unumplemented");
+    warn("peer check unimplemented");
     return false;
 #else
-    // fallback default //
-    int euid, egid;
-    if (getpeereid(sd, &euid, &egid) < 0) {
+    // fallback default -- so far not tested anywhere //
+    int peuid, pegid;
+    if (getpeereid(sd, &peuid, &pegid) < 0) {
 	warn("getpeereid on channel %d failed:", sd);
 	return false;
     }
-    if (eid != getuid()) {
-	warn("peer uid %d not %d on channel %d", eid, getuid(), sd);
+    int euid = (int)geteuid();
+    if (peuid != euid) {
+	warn("peer effective uid %d not %d on channel %d",(int)peuid,euid, sd);
 	return false;
     }
     return true;
