@@ -136,16 +136,16 @@ This is like case 2, but instead of using \fI/tmp/.X11-unix/X11\fR for
 the X11 display unix domain socket, use \fI$HOME/.ssh/X11\fR instead. The
 wrapx11usock preload library does the path mangling to achieve this.
 The reasons one might need this includes: security, multiuser support
-and filesystem permissions. The (source of) wrapx11usock.so can be found
-in the source archive of
+and filesystem permissions. The wrapx11usock.sh script (and the source
+for the preload library it uses) can be found in the source archive of
 .B tx11ssh.
 
 .RS 2
 .I term1\fR$
-tx11ssh - user@host env LD_PRELOAD=./wrapx11usock.so
+tx11ssh - user@host ./wrapx11usock.sh
 .P
 .I term2\fR$
-ssh -f user@host env LD_PRELOAD=./wrapx11usock.so DISPLAY=:11 urxvt
+ssh -f user@host ./wrapx11usock.sh urxvt
 .RE
 .\"
 .SH "DETACHING tx1ssh"
