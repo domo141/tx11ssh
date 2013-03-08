@@ -6,8 +6,8 @@
  set_cc() { CC=$2; }
  CC=; case ${1-} in CC=*) ifs=$IFS; IFS==; set_cc $1; IFS=$ifs; shift; esac
  case ${1-} in
-	p) set x -O2; shift ;;
-	d) set x -ggdb -DDEVEL; shift ;;
+	p) shift; set x -O2 "$@"; shift ;;
+	d) shift; set x -ggdb -DDEVEL "$@"; shift ;;
 	'') exec >&2; echo Enter:
 	echo " sh $0 [CC=<cc>] d -- for devel compilation"
 	echo " sh $0 [CC=<cc>] p -- for production compilation"
@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Sat 09 Mar 2013 00:02:51 EET too
+ * Last modified: Sat 09 Mar 2013 00:12:12 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -57,12 +57,16 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef VERSION
+#define VERSION "wip"
+#endif
+
 #define _POSIX_C_SOURCE 200112L // for S_ISSOCK
 //efine _POSIX_C_SOURCE 200809L // for strdup
 
 #if __linux__ || __CYGWIN32__
 #if DEVEL
-#define __NEED_UCRED 1	// to aid notifing portability issues when compiling
+#define __NEED_UCRED 1	// to aid noticing portability issues when compiling
 #else
 #define _GNU_SOURCE 1	// for struct ucred
 #endif
@@ -1039,12 +1043,13 @@ void exit_sig(int sig) { exit(sig); }
 
 int main(int argc, char ** argv)
 {
-    init_G(argv[0]);
-
     signal(SIGHUP, exit_sig);
     signal(SIGINT, exit_sig);
     signal(SIGTERM, exit_sig);
 
+    BB;
+    char * progname = argv[0];
+    init_G(progname);
     for (int i = 1; i < argc; i++)
 	if (strcmp(argv[i], "--remote--") == 0) {
 	    i++;
@@ -1060,7 +1065,7 @@ int main(int argc, char ** argv)
 	}
 
     if (argc < 2) {
-	G.component_identlen = 0;
+	set_ident("tx11ssh " VERSION);
 #define NL "\n"
 	die("\n\nUsage: %s (+|-) [:[nums][:numd]] [--ssh-command command] [--ll num] args"
 	    NL
@@ -1075,9 +1080,9 @@ int main(int argc, char ** argv)
 	    NL
 	    NL " args: see help of 'ssh' (or --ssh-command) for what arguments the command"
 	    NL "       accepts. Note that all args aren't useful (like '-f' for ssh)."
-	    NL, G.component_ident);
+	    NL, progname);
     }
-
+    BE;
     int remote_is_display;
     BB;
 

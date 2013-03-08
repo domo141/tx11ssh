@@ -14,7 +14,7 @@ tx11ssh: force # to make sure we have 'production' version
 	sh tx11ssh.c CC=$(CC) p
 
 tx11ssh-prod: tx11ssh.c
-	sh tx11ssh.c CC=$(CC) p
+	sh tx11ssh.c CC=$(CC) p -DVERSION='"$(VERSION)"'
 	mv tx11ssh $@
 
 install: tx11ssh-prod verchk
