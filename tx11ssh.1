@@ -109,11 +109,11 @@ from another execute urxvt terminal using display 11 (which is tx11ssh
 default) to open the urxvt terminal window to remote X display.
 
 .RS 2
-.I cygwin-term1\fR$
-tx11ssh + user@unixhost
+.nf
+.I cygwin-term1\fR$ tx11ssh + user@unixhost
 .P
-.I cygwin-term2\fR$
-DISPLAY=:11 urxvt -fade 1 -tn rxvt-unicode &
+.I cygwin-term2\fR$ DISPLAY=:11 urxvt -fade 1 -tn rxvt-unicode &
+.fi
 .RE
 
 .B Case\ 2:
@@ -124,11 +124,11 @@ second terminal below uses the display 11 (tx11ssh default) to open
 the window of remote command on local X display.
 
 .RS 2
-.I term1\fR$
-tx11ssh - user@host
+.nf
+.I term1\fR$ tx11ssh - user@host
 .P
-.I term2\fR$
-ssh -f user@host env DISPLAY=:11 urxvt
+.I term2\fR$ ssh -f user@host env DISPLAY=:11 urxvt
+.fi
 .RE
 
 .B Case\ 3:
@@ -141,12 +141,29 @@ for the preload library it uses) can be found in the source archive of
 .B tx11ssh.
 
 .RS 2
-.I term1\fR$
-tx11ssh - user@host ./wrapx11usock.sh
+.nf
+.I term1\fR$ tx11ssh - user@host ./wrapx11usock.sh
 .P
-.I term2\fR$
-ssh -f user@host ./wrapx11usock.sh urxvt
+.I term2\fR$ ssh -f user@host ./wrapx11usock.sh urxvt
+.fi
 .RE
+
+.B Case\ 4:
+Tunneling through a proxy. In some cases there the destination machine
+is not directly reachable; there is a "proxy" machine in between. Here
+are examples of ways how to handle the following two cases: There is
+\fBssh\fR server to be connected first (hopefully containing \fBnc\fR(1)
+command) or there is http CONNECT proxy to be used, respectively.
+
+.RS 2
+.nf
+.I term\fR$ tx11ssh - -oProxyCommand='ssh user@proxy nc %h %p' user@host
+.P
+.I term\fR$ tx11ssh - -oProxyCommand='corkscrew https_proxy 8080 %h %p' user@host
+.fi
+.RE
+
+The client execution (and all of the wrapping options) are the same.
 .\"
 .SH "DETACHING tx1ssh"
 
@@ -161,6 +178,7 @@ done at least with the the help of following commands(*):
 
 Non-interactive:
 
+.nf
 .RS 2
 .PD 0
 nohup setsid tx11ssh + remote > tx11ssh.log
@@ -184,6 +202,7 @@ screen tx11ssh + remote
 tmux tx11ssh + remote
 .PD
 .RE
+.fi
 .\"
 .TP 4
 .RI (*)
