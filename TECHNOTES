@@ -10,8 +10,8 @@ Run `tx11ssh --ll 4 remote` and observe the output while running
 X applications -- and after a while doing so continue reading...
 
 
-fd's used
----------
+fd's used (in tx11ssh process)
+------------------------------
 
 local-server
 ''''''''''''
@@ -26,7 +26,7 @@ local-display
 0: stdin
 1: stdout
 2: stderr
-3: /dev/null
+3: ssh connection
 4: /dev/null
 
 remote-server
@@ -66,6 +66,9 @@ By default the socket buffer is quite large. On linux ~120 000 bytes and
 cygwin (some unix socket emulation) ~200 000 bytes; probably when all
 processes get fair amount of processing time the traffic will never block...
 
+The usock-buffer-test will write data to unix domain socket, with no
+reader. It continues to write until full write could not be done anymore.
+
 linux$ ./usock-buffer-test 4545
 ..........................
 wrote 118170 bytes. last write: -1 (26.00 * 4545)
@@ -81,28 +84,18 @@ cygwin$ ./usock-buffer-test 4544
 wrote 202664 bytes. last write: -1 (47.00 * 4312)
 
 
-... running tx11ssh with default verbosity level 2 it will output
-whenever there was need for wait. To investigate whether there is
-need take more effort developing flow control with verbosity level 4
-(--ll 4) tx11ssh outputs sizes of all reads/writes from ssh/application;
-if the protocol has enough 2-way discussion ....
+... running tx11ssh with default verbosity level 2 it will output info
+whenever there was need to wait. With verbosity level 4 (--ll 4) tx11ssh
+outputs sizes of all reads coming from ssh and application. If need arises
+this can be used to determine whether more effort implementing flow
+control is beeded.
 
-2 stages
+First, sent & received counters needs to be added and peers ack the
+amount of data received -- if there is too much unacked data sent,
+more data from application is not read (so one channel cannot fill
+the pipe).
 
--- 1 keep 4 counters, sent, acked, received, acked
--- 2 when blocks, stop responding until ...
-
-
-
---ll for usage - info for code, verbosity level as self-documenting
-
-
-komentoja:
-
-        lcd
-        rcd
-        lls
-        rls
-        get
-        put
-        x
+This doesn't solve the blocking issue... In case write returns with
+partial (or -- normally -- zero) write, the data in question is copied
+to temporary buffer and writes are tried later. Acks are naturally not
+sent to this chennel until data can be written again).

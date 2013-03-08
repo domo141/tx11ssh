@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Fri 08 Mar 2013 16:36:11 EET too
+ * Last modified: Sat 09 Mar 2013 00:02:51 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -97,6 +97,7 @@
 #include <errno.h>
 
 #if __NEED_UCRED // defined for devel build, to aid noticing portability issues
+// in case this is defined even _GNU_SOURCE is not defined, just outcomment
 struct ucred { pid_t pid; uid_t uid; gid_t gid; }; //usr/include/bits/socket.h
 #endif
 
@@ -1125,6 +1126,7 @@ int main(int argc, char ** argv)
 	}
 	if (get_next_arg_val(&argc, &argv, "--ssh-command", &ssh_command))
 	    continue;
+	// --ll for cmdline, info<n>() in code and 'verbosity' in doc.
 	if (get_next_arg_val(&argc, &argv, "--ll", &infolevel))
 	    continue;
 	break;
