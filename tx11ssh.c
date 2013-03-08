@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Sat 02 Mar 2013 14:01:42 EET too
+ * Last modified: Fri 08 Mar 2013 16:36:11 EET too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -420,7 +420,7 @@ void xreadfully(int fd, void * buf, ssize_t len)
 bool to_socket(int sd, void * data, size_t datalen)
 {
     ssize_t wlen = write(sd, data, datalen);
-    info4("channel %d:%d %zd bytes of data written", sd, G.chnlcntr[sd], wlen);
+    info4("Channel %d:%d %zd bytes of data written", sd, G.chnlcntr[sd], wlen);
     if (wlen == (ssize_t)datalen)
 	return true;
 
@@ -441,7 +441,7 @@ bool to_socket(int sd, void * data, size_t datalen)
 
 	wlen = write(sd, buf, datalen);
 	if (errno != EAGAIN && errno != EWOULDBLOCK) {
-	    warn("channel %d fd gone ...:", sd);
+	    warn("Channel %d fd gone ...:", sd);
 	    return false;
 	}
 
@@ -452,7 +452,7 @@ bool to_socket(int sd, void * data, size_t datalen)
 	d1(("%d: wlen %d (of %u):", sd, (int)wlen, (unsigned int)datalen));
     } while (++tries < 100); // 100 times makes that 10 sec total.
 
-    info1("peer at %d too slow to read traffic. dropping", sd);
+    info1("Peer at %d too slow to read traffic. Dropping", sd);
     return false;
 }
 
@@ -464,7 +464,7 @@ void mux_eof_to_netpipe(int fd, int chnl)
     hdr[2] = 0;
     hdr[3] = 0;
 
-    info4("channel %d:%d mux eof (to fd %d)", chnl, hdr[1], fd);
+    info4("Channel %d:%d mux eof (to fd %d)", chnl, hdr[1], fd);
 
     if (write(fd, hdr, 4) != 4)
 	die("write() to net failed:");
@@ -486,7 +486,7 @@ void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
     iov[1].iov_base = data;
     iov[1].iov_len = datalen;
 
-    info4("channel %d:%d mux %zd bytes (to fd %d)",
+    info4("Channel %d:%d mux %zd bytes (to fd %d)",
 	  chnl, G.chnlcntr[chnl], datalen, fd);
 
     if (writev(fd, iov, 2) != (ssize_t)datalen + 4)
@@ -508,7 +508,7 @@ int from_netpipe(int fd, uint8_t * chnl, uint8_t * cntr, char * data)
 
     if (len)
 	xreadfully(fd, data, len);
-    info4("channel %d:%d demuxed %d bytes (from fd %d)", *chnl,*cntr, len,fd);
+    info4("Channel %d:%d demuxed %d bytes (from fd %d)", *chnl,*cntr, len,fd);
     return len;
 }
 
@@ -519,7 +519,7 @@ void close_socket_and_remap(int sd)
     int o = G.chnl2pfd[sd];
     G.chnl2pfd[sd] = 0;
 
-    info4("closing channel %d:%d", sd, G.chnlcntr[sd]);
+    info4("Closing channel %d:%d", sd, G.chnlcntr[sd]);
     G.chnlcntr[sd]++;
 
     d2(("remap: sd %d, o %d, nfds %d, cntr %d", sd, o, G.nfds,G.chnlcntr[sd]));
@@ -542,14 +542,14 @@ int from_socket_to_netpipe(int pfdi, int netfd)
     int fd = G.pfds[pfdi].fd;
     int len = read(fd, buf, sizeof buf);
 
-    //info4("channel %d:%d read %d bytes", fd, G.chnlcntr[fd], len);
+    //info4("Channel %d:%d read %d bytes", fd, G.chnlcntr[fd], len);
     d0(("%d %d %d -- read %d", fd, pfdi, G.chnl2pfd[fd], len));
 
     if (len <= 0) {
 	if (len < 0)
-	    warn("read from %d failed, closing:", fd);
+	    warn("Read from %d failed. Closing:", fd);
 	else
-	    info2("EOF for %d:%d. closing", fd, G.chnlcntr[fd]);
+	    info2("EOF for channel %d:%d. Closing", fd, G.chnlcntr[fd]);
 
 	mux_eof_to_netpipe(netfd, fd);
 	close_socket_and_remap(fd);
@@ -587,7 +587,7 @@ void set_nonblock(int sd)
 void remote_set_socket_file(char * arg)
 {
     if (arg == null)
-	die("socket argument missing");
+	die("Socket argument missing");
 
     char * p = arg;
     while (isdigit((int)*p))
@@ -620,13 +620,13 @@ bool checkpeerid(int sd)
     }
     int uid = (int)getuid();
     if ((int)cr.uid != uid) {
-	warn("peer real uid %d not %d on channel %d", (int)cr.uid, uid, sd);
+	warn("Peer real uid %d not %d on channel %d", (int)cr.uid, uid, sd);
 	return false;
     }
     return true;
 #elif __XXXsolaris__ // fixme, when known what and how...
     //getpeerucred(...);
-    warn("peer check unimplemented");
+    warn("Peer check unimplemented");
     return false;
 #else
     // fallback default -- so far not tested anywhere //
@@ -637,7 +637,7 @@ bool checkpeerid(int sd)
     }
     int euid = (int)geteuid();
     if (peuid != euid) {
-	warn("peer effective uid %d not %d on channel %d",(int)peuid,euid, sd);
+	warn("Peer effective uid %d not %d on channel %d",(int)peuid,euid, sd);
 	return false;
     }
     return true;
@@ -741,12 +741,12 @@ void server_handle_display_message(int rfdi, int rfdo)
     d1(("chnl %d, cntr %d, len %d (%d)", chnl, cntr, len, G.nfds));
 
     if (cntr != G.chnlcntr[chnl]) {
-	info3("data to EOF'd channel %d:%d (!= %d) (%d bytes). dropped",
+	info3("Data to EOF'd channel %d:%d (!= %d) (%d bytes). Dropped",
 	      chnl, cntr, G.chnlcntr[chnl], len);
 	return;
     }
     if (len == 0) {
-	info2("EOF for %d:%d. closing", chnl, cntr);
+	info2("EOF for channel %d:%d. Closing", chnl, cntr);
 	close_socket_and_remap(chnl);
 	return;
     }
@@ -811,13 +811,14 @@ void server_loop(int rfdi)
 		close(sd);
 	    else if (sd > 255) {
 		//if (G.nfds == sizeof G.pfds / sizeof G.pfds[0]) {
-		warn("connection limit reached");
+		warn("Connection limit reached");
 		close(sd);
 	    }
 	    else {
 		set_nonblock(sd);
 		G.pfds[G.nfds].fd = sd;
 		G.chnl2pfd[sd] = G.nfds++;
+		info2("New connection. Channel %d:%d", sd, G.chnlcntr[sd]);
 		d2(("new chnl %d, nfds %d", sd, G.nfds));
 	    }
 	}
@@ -900,23 +901,23 @@ void display_handle_server_message(int rfdi, int rfdo)
     d1(("chnl %d, cntr %d, len %d, pfdi %d(/%d)", chnl,cntr,len,pfdi,G.nfds));
 
     if (cntr != G.chnlcntr[chnl]) {
-	info3("data to EOF'd channel %d (cntr %d != %d) (%d bytes). dropped",
+	info3("Data to EOF'd channel %d (cntr %d != %d) (%d bytes). Dropped",
 	      chnl, cntr, G.chnlcntr[chnl], len);
 	return;
     }
     if (pfdi == 0) {
 	if (chnl < 5) {
-	    warn("new connection %d less than 5. Drop it", chnl);
+	    warn("New connection %d:%d less than 5. Drop it", chnl, cntr);
 	    return;
 	}
 	if (len == 0) {
-	    info1("new connection %d EOF'd immediately", chnl);
+	    info1("New connection %d:%d EOF'd immediately", chnl, cntr);
 	    return;
 	}
 	int fd = xuconnect(G.socket_file);
 	if (fd != chnl) {
 	    if (fd < 0) {
-		warn("failed to connect %s:", G.socket_file);
+		warn("Failed to connect %s:", G.socket_file);
 		mux_eof_to_netpipe(rfdo, chnl);
 		return;
 	    }
@@ -929,10 +930,11 @@ void display_handle_server_message(int rfdi, int rfdo)
 	set_nonblock(chnl);
 	G.pfds[G.nfds].fd = chnl;
 	G.chnl2pfd[chnl] = G.nfds++;
+	info2("New connection. Channel %d:%d", chnl, cntr);
 	d2(("new chnl %d, nfds %d", fd, G.nfds));
     }
     if (len == 0) {
-	info2("EOF for %d:%d. closing", chnl, cntr);
+	info2("EOF for channel %d:%d. Closing", chnl, cntr);
 	close_socket_and_remap(chnl);
 	return;
     }
