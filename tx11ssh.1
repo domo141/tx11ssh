@@ -28,10 +28,10 @@
 .\"
 .\" man groff_man
 .\"
-.TH TX11SSH 1 2013-02-27 "tx11ssh 0.99" "User Commands"
+.TH TX11SSH 1 2013-03-09 "tx11ssh 1.0x" "User Commands"
 .\"
 .SH NAME
-tx1ssh \- tunnel X11 traffic over ssh connection
+tx11ssh \- tunnel X11 traffic over ssh connection
 .\"
 .SH SYNOPSIS
 .B tx11ssh +
@@ -152,11 +152,13 @@ for the preload library it uses) can be found in the source archive of
 Tunneling through a proxy. In some cases there the destination machine
 is not directly reachable; there is a "proxy" machine in between. Here
 are examples of ways how to handle the following two cases: There is
-\fBssh\fR server to be connected first (hopefully containing \fBnc\fR(1)
-command) or there is http CONNECT proxy to be used, respectively.
+\fBssh\fR server to be connected first (2 examples below) or there is http
+CONNECT proxy to be used, respectively.
 
 .RS 2
 .nf
+.I term\fR$ tx11ssh - -oProxyCommand='ssh user@proxy -W %h:%p' user@host
+.P
 .I term\fR$ tx11ssh - -oProxyCommand='ssh user@proxy nc %h %p' user@host
 .P
 .I term\fR$ tx11ssh - -oProxyCommand='corkscrew https_proxy 8080 %h %p' user@host
@@ -164,8 +166,12 @@ command) or there is http CONNECT proxy to be used, respectively.
 .RE
 
 The client execution (and all of the wrapping options) are the same.
+
+(Instead of '-W' the 'nc' alternative provides option to add more forwardings
+to the proxy command (e.g. -D port); With '-W' all other forwarding
+attempts are cleared out.)
 .\"
-.SH "DETACHING tx1ssh"
+.SH "DETACHING tx11ssh"
 
 Perfect "detaching" from shell is impossible to implement in
 tx11ssh since one needs to detach from control terminal too.

@@ -1,7 +1,7 @@
 # -*- makefile -*-
 
 #SW = tx11ssh
-VERSION = 0.99
+VERSION = 1.0x
 
 
 CC = gcc
@@ -84,7 +84,7 @@ verchk.sh:
 	die () { echo "$@" >&1; exit 1; }
 	man_ver=`sed -n 's/^[.]TH[^"]*[^ ]* \([^"]*\).*/\1/p' tx11ssh.1`
 	case $man_ver in "$1") ;; *)
-		die "Manual page version '$man_ver' not '$(VERSION)'"
+		die "Manual page version '$man_ver' not '$1'"
 	esac
 #	#eos
 	exit 1 # not reached
