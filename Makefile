@@ -37,11 +37,43 @@ install.sh:
 #	#eos
 	exit 1 # not reached
 
-F = tx11ssh.c tx11ssh.1 Makefile TECHNOTES usock-buffer-test.c test-tx11ssh.pl\
-	wrapx11usock.sh ldpreload_wrapx11usock.c
+F = tx11ssh.c tx11ssh.1 Makefile usock-buffer-test.c test-tx11ssh.pl \
+	TECHNOTES wrapx11usock.sh ldpreload_wrapx11usock.c
 
 txz:	verchk
 	tar --xform s,^,tx11ssh-$(VERSION)/, -Jcvf tx11ssh-$(VERSION).tar.xz $F
+
+DD=
+webpage: verchk
+	sed '1,/^$@.sh:/d;/^#.#eos/q' Makefile | sh -s "$(VERSION)" "$(DD)"
+
+webpage.sh:
+	test -n "$1" || exit 1 # internal shell script; not to be made directly
+	set -eu
+	exec > HEADER.html
+	echo "<div align=\"left\"><h1>tx11ssh $1</h1>"
+	echo '<p>Tx11ssh provides a way to (forward or reverse) tunnel X11'
+	echo 'traffic over ssh connection.</p>'
+	echo '<p>Read the manual page below file list for more information.</p>'
+	echo '<p><small>(Decide yourself which direction you consider being'
+	echo '"reverse" and which "forward" tunneling ;)</small></p>'
+	echo "</div>"
+	exec > README.html
+	GROFF_NO_SGR=1 TERM=vt100; export GROFF_NO_SGR TERM
+	echo '<pre>'
+	groff -man -T latin1 tx11ssh.1 | perl -e '
+	my %htmlqh = qw/& &amp;   < &lt;   > &gt;   '\'' &apos;   " &quot;/;
+	sub htmlquote($) { $_[0] =~ s/([&<>'\''"])/$htmlqh{$1}/ge; }
+	while (<>) { htmlquote $_; s/[_&]\010&/&/g;
+		s/((?:_\010[^_])+)/<u>$1<\/u>/g; s/_\010(.)/$1/g;
+		s/((?:.\010.)+)/<b>$1<\/b>/g; s/.\010(.)/$1/g; print $_; }'
+	echo '</pre>'
+	exec > /dev/null
+	case $2 in '') exit 0; esac
+	cp HEADER.html README.html TECHNOTES tx11ssh-$1.tar.xz "$2"
+#	#eos
+	exit 1 # not reached
+
 
 verchk:	force
 	sed '1,/^verchk.sh:/d;/^#.#eos/q' Makefile | sh -s "$(VERSION)"
@@ -81,7 +113,7 @@ usock-buffer-test: usock-buffer-test
 
 
 clean distclean: force
-	rm -f tx11ssh tx11ssh-prod *.so usock-buffer-test *~
+	rm -f tx11ssh tx11ssh-prod *.so *.html usock-buffer-test *~
 
 .PHONY: force
 
