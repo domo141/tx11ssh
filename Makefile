@@ -22,7 +22,8 @@ ltest2: d # local test using ssh
 	./tx11ssh - 127.1
 
 ltest3: d # local test using preload lib
-	./tx11ssh + --ssh-command env LD_PRELOAD=./wrapx11usock.so ./tx11ssh
+	sh ldpreload_wrapx11usock.c
+	./tx11ssh - --ssh-command ./wrapx11usock.sh ./tx11ssh none
 
 usbtest: usock-buffer-test
 	./usock-buffer-test 4120

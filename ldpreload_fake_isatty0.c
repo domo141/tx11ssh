@@ -1,7 +1,7 @@
 #if 0 /*
 	archos=`uname -s -m | awk '{ print tolower($2) "-" tolower($1) }'`
 	libc_so=`ldd /usr/bin/env | awk '/libc.so/ { print $3 }'`
-	bn=`basename "$0" .c | sed s/ldpreload_//`; lbn=$bn-$archos
+	bn=`basename "$0" .c`; lbn=$bn-$archos
 	trap 'rm -f $bn.o' 0
 	WARN="-Wall -Wstrict-prototypes -pedantic -Wno-long-long"
 	WARN="$WARN -Wcast-align -Wpointer-arith " # -Wfloat-equal #-Werror
@@ -22,7 +22,7 @@
  *          All rights reserved
  *
  * Created: Wed 27 Feb 2013 22:54:11 EET too
- * Last modified: Fri 01 Mar 2013 19:50:43 EET too
+ * Last modified: Mon 04 Mar 2013 21:38:13 EET too
  */
 
 #include <stdlib.h>

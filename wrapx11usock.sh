@@ -1,11 +1,17 @@
 #!/bin/sh
 # -*- text -*-
 
+set -eu
+
+libpath=./
+
 DISPLAY=:11
-LD_PRELOAD=./wrapx11usock.so
+archos=`uname -s -m | awk '{ print tolower($2) "-" tolower($1) }'`
+LD_PRELOAD=${libpath}ldpreload_wrapx11usock-$archos.so
 export DISPLAY LD_PRELOAD
 
 exec "$@"
+exit 1
 
 Edit the path of `./wrapx11usock.so` in case this script and the preload
 library are not located to $HOME directory.
