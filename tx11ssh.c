@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Sat 09 Mar 2013 00:12:12 EET too
+ * Last modified: Wed 09 Oct 2013 12:12:12 EEST too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -589,20 +589,55 @@ void set_nonblock(int sd)
     xfcntl(sd, F_SETFL, xfcntl(sd, F_GETFL, 0) | O_NONBLOCK);
 }
 
-void remote_set_socket_file(char * arg)
+void fill_socket_file(const char * arg)
+{
+#if __linux__
+    char * socket_file;
+    size_t socket_file_size;
+    if (arg[0] == '@') {
+	arg++;
+	G.socket_file[0] = '\0';
+	socket_file = G.socket_file + 1;
+	socket_file_size = sizeof G.socket_file - 1;
+    }
+    else {
+	socket_file = G.socket_file;
+	socket_file_size = sizeof G.socket_file;
+    }
+#else
+#define socket_file G.socket_file
+#define socket_file_size sizeof G.socket_file
+#endif
+    snprintf(socket_file, socket_file_size, "%s/X%s", sockdir, arg);
+#if ! __linux__
+#undef socket_file
+#undef socket_file_size
+#endif
+}
+
+
+void remote_set_socket_file(const char * arg)
 {
     if (arg == null)
 	die("Socket argument missing");
 
-    char * p = arg;
+    const char * p = arg;
+#if __linux__
+    if (*p == '@')
+	p++;
+#endif
+
     while (isdigit((int)*p))
 	p++;
     if (p == arg || *p != '\0')
 	die("'%s': illegal display socket number", arg);
-    if (p - arg > 4)
-	die("'%s': display socket number too large", arg);
-
-    snprintf(G.socket_file, sizeof G.socket_file, "%s/X%s", sockdir, arg);
+    if (p - arg > 4) {
+#if __linux__
+	if (arg[0] != '@' || p - arg > 5)
+#endif
+	    die("'%s': display socket number too large", arg);
+    }
+    fill_socket_file(arg);
 }
 
 void set_infolevel(char * arg)
@@ -650,7 +685,7 @@ bool checkpeerid(int sd)
 }
 
 
-int xubind_listen(const char * path)
+int xubind_listen(char * path)
 {
     int sd = xmkusock();
     int one = 1;
@@ -659,9 +694,28 @@ int xubind_listen(const char * path)
     struct sockaddr_un addr = {
 	.sun_family = AF_UNIX
     };
-    strncpy(addr.sun_path, path, sizeof addr.sun_path);
-    if (addr.sun_path[sizeof addr.sun_path - 1] != '\0')
-	die("Path '%s' too long", path);
+
+#if __linux__
+    int abstract;
+    if (path[0] == '\0') {
+	path[0] = '@';
+	abstract = 1;
+    }
+    else
+	abstract = 0;
+#endif
+
+    unsigned int pathlen = strlen(path);
+
+    if (pathlen >= sizeof addr.sun_path)
+	die("Path '%s' is too long", path);
+
+    memcpy(addr.sun_path, path, pathlen + 1);
+
+#if __linux__
+    if (abstract)
+	addr.sun_path[0] = '\0';
+#endif
 
     if (bind(sd, (struct sockaddr *)&addr, sizeof addr) < 0) {
 	if (errno == EADDRINUSE)
@@ -1107,23 +1161,31 @@ int main(int argc, char ** argv)
     for( ; argc >= 1; argc--, argv++) {
 	if (argv[0][0] == ':') {
 	    char * p = &argv[0][1];
-	    if (isdigit((int)*p)) {
+	    if (isdigit((int)*p) || *p == '@') {
 		ssn = p++;
+		if (!isdigit((int)*p))
+		    die("X server socket number missing in '%s'", argv[0]);
+		char * s = p;
 		while (isdigit((int)*p))
 		    p++;
 		if (*p != ':' && *p != '\0')
 		    die("Illegal X server socket number in '%s'", argv[0]);
-		if (p - argv[0] > 5)
+		if (p - s > 4)
 		    die("X server socket number in '%s' is too big", argv[0]);
 	    }
 	    if (*p == ':') {
 		char * q = p++;
 		dsn = p;
+		if (*p == '@')
+		    p++;
+		if (!isdigit((int)*p))
+		    die("X display socket number missing in '%s'", argv[0]);
+		char * s = p;
 		while (isdigit((int)*p))
 		    p++;
-		if (p == dsn || *p != '\0')
+		if (*p != '\0')
 		    die("Illegal X display socket number in '%s'", argv[0]);
-		if (p - dsn > 4)
+		if (p - s > 4)
 		    die("X display socket number in '%s' is too big", argv[0]);
 		*q = '\0';
 	    }
@@ -1181,7 +1243,7 @@ int main(int argc, char ** argv)
 	rid = "server";
     }
 
-    snprintf(G.socket_file, sizeof G.socket_file, "%s/X%s", sockdir, lsn);
+    fill_socket_file(lsn);
 
     (void)close(3);
     int sshfd = sshconn(ssh_command, argv, rid, rsn);
