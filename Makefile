@@ -1,7 +1,7 @@
 # -*- makefile -*-
 
 #SW = tx11ssh
-VERSION = 1.0x
+VERSION = wip-1.1
 
 
 CC = gcc
@@ -10,14 +10,18 @@ SHELL = /bin/sh
 
 all: tx11ssh
 
-tx11ssh: force # to make sure we have 'production' version
+# "release" and "devel" versions build to the same name so those
+# can be used interchangeable in tests (when other end is compiled)
+# on remote system.
+
+tx11ssh: force # to make sure we have 'release' version
 	sh tx11ssh.c CC=$(CC) p
 
-tx11ssh-prod: tx11ssh.c
+tx11ssh-rel: tx11ssh.c
 	sh tx11ssh.c CC=$(CC) p -DVERSION='"$(VERSION)"'
 	mv tx11ssh $@
 
-install: tx11ssh-prod verchk
+install: tx11ssh-rel verchk
 	@case "$(PREFIX)" in '') \
 		echo Usage: make install PREFIX=prefix; exit 1; esac
 	sed '1,/^$@.sh:/d;/^#.#eos/q' Makefile | sh -s "$(PREFIX)"
@@ -32,7 +36,7 @@ install.sh:
 	do test -d "$PREFIX"/$d || mkdir "$PREFIX"/$d
 	done
 	set -x
-	cp tx11ssh-prod "$PREFIX"/bin/tx11ssh
+	cp tx11ssh-rel "$PREFIX"/bin/tx11ssh
 	cp tx11ssh.1 "$PREFIX"/share/man/man1/
 #	#eos
 	exit 1 # not reached
@@ -113,7 +117,7 @@ usock-buffer-test: usock-buffer-test
 
 
 clean distclean: force
-	rm -f tx11ssh tx11ssh-prod *.so *.html usock-buffer-test *~
+	rm -f tx11ssh tx11ssh-rel *.so *.html usock-buffer-test *~
 
 .PHONY: force
 
