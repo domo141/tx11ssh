@@ -1,7 +1,7 @@
 # -*- makefile -*-
 
-VERSION = wip-1.1
-DATE = 2013-11-01
+VERSION = 1.1
+DATE = 2013-11-02
 
 CC = gcc
 
@@ -63,10 +63,16 @@ README.md.sh:
 	echo 'traffic over ssh connection.'
 	echo
 	echo 'Read the embedded manual page below for more information.'
-	echo '<br/><small>(Decide yourself which direction you consider being'
-	echo '"reverse" and which "forward" tunneling ;)</small>'
+	echo '<br/><sub>(Decide yourself which direction you consider being'
+	echo '"reverse" and which "forward" tunneling ;)</sub>'
 	echo
-	echo 'For techical info read [TECHNOTES](TECHNOTES).'
+	echo 'For technical info read [TECHNOTES](TECHNOTES).'
+	echo
+	echo 'Changes from version 1.0 to 1.1:'
+	echo
+	echo '  * Abstract namespace support for unix sockets under Linux'
+	echo '  * Web page creation changed and copyright/license information\c'
+	echo ' added'
 	echo
 	echo '<pre>'
 	groff -man -T latin1 tx11ssh.1 | perl -e '
@@ -109,7 +115,7 @@ itest: d # infinite test
 ltest1: d # local test
 	./tx11ssh + --ssh-command ./tx11ssh none
 
-ltest2: d # local test using ssh
+ltest2: d # local test using ssh (needs to have sshd running)
 	./tx11ssh - 127.1
 
 ltest3: d # local test using preload lib
