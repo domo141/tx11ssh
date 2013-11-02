@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Wed 09 Oct 2013 12:12:12 EEST too
+ * Last modified: Sat 02 Nov 2013 12:22:54 +0200 too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -1129,6 +1129,11 @@ int main(int argc, char ** argv)
 	    NL "  nums: server socket to bind, 11 by default"
 	    NL "  numd: display socket to connect, 0 by default"
 	    NL
+#if __linux__
+	    NL "   In case 'nums' or 'numd' starts with '@' the filesystem-independent"
+	    NL "   abstract namespace is used to bind/connect sockets (Linux only)."
+	    NL
+#endif
 	    NL "  --ssh-command: command instead of 'ssh' to use for tunnel"
 	    NL "  --ll:          verbosity level: range 0-4, 2 by default"
 	    NL

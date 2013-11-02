@@ -76,6 +76,12 @@ server socket to be created (i.e. /tmp/.X11-unix/X\fInums\fR) and the second
 \fInumd\fR display server socket where co connect. Default values are 11
 and 0, respectively. Either can be omitted; e.g. :\fI12\fR and ::\fI1\fR are
 accepted.
+
+Under Linux if \fInums\fR or \fInumd\fR is prefixed with \fI@\fR the
+filesystem independent abstract namespace is used when creating these
+sockets. (Note that abstract namespace is in network namespace securitywise.
+For example LXC containers sharing network namespaces shares also this
+filesystem-independent abstract namespace of unix domain sockets.)
 .TP 4
 .RI --ssh-command \ \fIcommand\fR
 Execute command instead of '\fBssh\fR' for tunnel creation
