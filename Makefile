@@ -1,8 +1,7 @@
 # -*- makefile -*-
 
-#SW = tx11ssh
 VERSION = wip-1.1
-
+DATE = 2013-11-01
 
 CC = gcc
 
@@ -82,16 +81,22 @@ README.md.sh:
 	exit 1 # not reached
 
 verchk:	force
-	sed '1,/^verchk.sh:/d;/^#.#eos/q' Makefile | sh -s "$(VERSION)"
+	sed '1,/^verchk.sh:/d;/^#.#eos/q' Makefile | sh -s "$(VERSION)" $(DATE)
 
 verchk.sh:
 	test -n "$1" || exit 1 # internal shell script; not to be made directly
 	set -eu
-	die () { echo "$@" >&1; exit 1; }
+	die () { echo "$@" >&1; ev=1; }
+	ev=0
 	man_ver=`sed -n 's/^[.]TH[^"]*[^ ]* \([^"]*\).*/\1/p' tx11ssh.1`
 	case $man_ver in "$1") ;; *)
-		die "Manual page version '$man_ver' not '$1'"
+		die "Manual page version '$man_ver' not '$1'."
 	esac
+	man_date=`awk '/^[.]TH /{print $4}' tx11ssh.1`
+	case $man_date in "$2") ;; *)
+		die "Manual page date '$man_date' not '$2'."
+	esac
+	exit $ev
 #	#eos
 	exit 1 # not reached
 
