@@ -8,7 +8,7 @@
 	WARN="$WARN -W -Wwrite-strings -Wcast-qual -Wshadow" # -Wconversion
 	set -xeu
 	gcc -std=c99 -shared -fPIC $WARN -o $lbn.so "$0" \
-		-DARCHOS="\"$archos\"" -DLIBC_SO="\"$libc_so\""
+		-DARCHOS="\"$archos\"" -DLIBC_SO="\"$libc_so\"" -ldl
 	exit
 	# keep this code for a while in case there is some portability issues..
 	#gcc -std=c99 -fPIC -rdynamic -g -c $WARN "$0" -o "$bn.o" \
@@ -26,7 +26,7 @@
  *          All rights reserved
  *
  * Created: Sun 24 Feb 2013 17:42:17 EET too
- * Last modified: Sat 02 Nov 2013 11:56:04 +0200 too
+ * Last modified: Sat 02 Nov 2013 14:34:46 +0200 too
  */
 
 #include <unistd.h>
