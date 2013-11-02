@@ -2,15 +2,19 @@
 	archos=`uname -s -m | awk '{ print tolower($2) "-" tolower($1) }'`
 	libc_so=`ldd /usr/bin/env | awk '/libc.so/ { print $3 }'`
 	bn=`basename "$0" .c`; lbn=$bn-$archos
-	trap 'rm -f $bn.o' 0
+	#trap 'rm -f $bn.o' 0
 	WARN="-Wall -Wstrict-prototypes -pedantic -Wno-long-long"
 	WARN="$WARN -Wcast-align -Wpointer-arith " # -Wfloat-equal #-Werror
 	WARN="$WARN -W -Wwrite-strings -Wcast-qual -Wshadow" # -Wconversion
 	set -xeu
-	gcc -std=c99 -fPIC -rdynamic -g -c $WARN "$0" -o "$bn.o" \
+	gcc -std=c99 -shared -fPIC $WARN -o $lbn.so "$0" \
 		-DARCHOS="\"$archos\"" -DLIBC_SO="\"$libc_so\""
-	gcc -shared -Wl,-soname,$lbn.so -o $lbn.so $bn.o -lc -ldl
 	exit
+	# keep this code for a while in case there is some portability issues..
+	#gcc -std=c99 -fPIC -rdynamic -g -c $WARN "$0" -o "$bn.o" \
+	#	-DARCHOS="\"$archos\"" -DLIBC_SO="\"$libc_so\""
+	#gcc -shared -Wl,-soname,$lbn.so -o $lbn.so $bn.o -lc -ldl
+	#exit
       */
 #endif
 /*
@@ -22,7 +26,7 @@
  *          All rights reserved
  *
  * Created: Sun 24 Feb 2013 17:42:17 EET too
- * Last modified: Mon 04 Mar 2013 21:38:02 EET too
+ * Last modified: Sat 02 Nov 2013 11:56:04 +0200 too
  */
 
 #include <unistd.h>
