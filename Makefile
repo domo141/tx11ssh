@@ -41,7 +41,7 @@ install.sh:
 	exit 1 # not reached
 
 F = tx11ssh.c tx11ssh.1 Makefile usock-buffer-test.c test-tx11ssh.pl \
-	README.md TECHNOTES wrapx11usock.sh ldpreload_wrapx11usock.c
+	README.md LICENSE TECHNOTES wrapx11usock.sh ldpreload_wrapx11usock.c
 
 txz:	README.md
 	tar --xform s,^,tx11ssh-$(VERSION)/, -Jcvf tx11ssh-$(VERSION).tar.xz $F
