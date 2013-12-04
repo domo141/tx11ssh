@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Sat 02 Nov 2013 12:22:54 +0200 too
+ * Last modified: Thu 05 Dec 2013 00:03:15 +0200 too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -72,15 +72,6 @@
 #endif
 #endif
 
-#if DEVEL
-#define CIOVEC_HAX 1
-#endif
-
-// defined while developing; undef'd for production compilation
-#if CIOVEC_HAX
-#define writev xxwritev
-#endif
-
 #include <unistd.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -103,15 +94,6 @@
 #if __NEED_UCRED // defined for devel build, to aid noticing portability issues
 // in case this is defined even _GNU_SOURCE is not defined, just outcomment
 struct ucred { pid_t pid; uid_t uid; gid_t gid; }; //usr/include/bits/socket.h
-#endif
-
-#if CIOVEC_HAX
-#undef writev
-struct ciovec {
-    const void * iov_base;
-    size_t iov_len;
-};
-ssize_t writev(int fd, const struct ciovec * iov, int iovcnt);
 #endif
 
 // clang -dM -E - </dev/null | grep __GNUC__  outputs '#define __GNUC__ 4'
@@ -190,29 +172,6 @@ void init_G(const char * ident)
 {
     memset(&G, 0, sizeof G);
 
-#if CIOVEC_HAX
-    BB;
-    struct iovec * iov = null;
-    struct ciovec * ciov = null;
-
-    if (sizeof *iov != sizeof *ciov)
-	die("iovec size %zu different than ciovec size %zu",
-	    sizeof *iov, sizeof *ciov);
-    if (sizeof iov->iov_base != sizeof ciov->iov_base)
-	die("iov_base sizes differ: %zu != %zu",
-	    sizeof iov->iov_base, sizeof ciov->iov_base);
-    if (sizeof iov->iov_len != sizeof ciov->iov_len)
-	die("iov_len sizes differ: %zu != %zu",
-	    sizeof iov->iov_len, sizeof ciov->iov_len);
-    if ((const void *)&iov->iov_base != (const void *)&ciov->iov_base)
-	die("iov_base offsets differ: %p != %p",
-	    (void *)&iov->iov_base, (void *)&ciov->iov_base);
-    if (&iov->iov_len != &ciov->iov_len)
-	die("iov_len offsets differ: %p != %p",
-	    (void *)&iov->iov_len, (void *)&ciov->iov_len);
-    BE;
-#endif
-
     set_ident(ident);
     G.infolevel = 2;
 }
@@ -229,7 +188,8 @@ static void init_comm(void)
 
     signal(SIGPIPE, SIG_IGN);
 }
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual" // works with (char *)str ...
 void vout(int fd, const char * format, va_list ap)
 {
     int error = errno;
@@ -238,11 +198,7 @@ void vout(int fd, const char * format, va_list ap)
     char msg[1024];
     time_t t = time(0);
     struct tm * tm = localtime(&t);
-#if CIOVEC_HAX
-    struct ciovec iov[7];
-#else
     struct iovec iov[7];
-#endif
     int iocnt;
 
     strftime(timestr, sizeof timestr, "%d/%H:%M:%S ", tm);
@@ -250,10 +206,10 @@ void vout(int fd, const char * format, va_list ap)
     iov[0].iov_base = timestr;
     iov[0].iov_len = strlen(timestr);
 
-    iov[1].iov_base = G.component_ident; // writev does not modify content !!!
+    iov[1].iov_base = (char *)G.component_ident; // cast & ignore cast-qual...
     iov[1].iov_len = G.component_identlen;
 
-    iov[2].iov_base = ": ";   // writev does not modify content !!!
+    iov[2].iov_base = (char *)": ";   // cast & ignore cast-qual...
     iov[2].iov_len = 2;
 
     vsnprintf(msg, sizeof msg, format, ap);
@@ -262,16 +218,16 @@ void vout(int fd, const char * format, va_list ap)
     iov[3].iov_len = strlen(msg);
 
     if (format[strlen(format) - 1] == ':') {
-	iov[4].iov_base = " ";   // writev does not modify content !!!
+	iov[4].iov_base = (char *)" ";   // cast & ignore cast-qual...
 	iov[4].iov_len = 1;
 	iov[5].iov_base = strerror(error);
 	iov[5].iov_len = strlen(iov[5].iov_base);
-	iov[6].iov_base = "\n";  // writev does not modify content !!!
+	iov[6].iov_base = (char *)"\n";  // cast & ignore cast-qual...
 	iov[6].iov_len = 1;
 	iocnt = 7;
     }
     else {
-	iov[4].iov_base = "\n";  // writev does not modify content !!!
+	iov[4].iov_base = (char *)"\n";  // cast & ignore cast-qual...
 	iov[4].iov_len = 1;
 	iocnt = 5;
     }
@@ -280,8 +236,9 @@ void vout(int fd, const char * format, va_list ap)
     // be any simple way to inform the user anyway. The probability
     // this happening without any other (visible) problems in system
     // is infinitesimally small..
-    (void)writev(fd, iov, iocnt);
+    (void)writev(fd, iov, iocnt); // writev() does not modify *iov
 }
+#pragma GCC diagnostic pop
 
 #define info1(...) if (G.infolevel >= 1) warn(__VA_ARGS__)
 #define info2(...) if (G.infolevel >= 2) warn(__VA_ARGS__)
@@ -475,28 +432,27 @@ void mux_eof_to_netpipe(int fd, int chnl)
 	die("write() to net failed:");
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual" // works with (char *)str ...
 void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
 {
     uint16_t hdr[2];
-#if CIOVEC_HAX
-    struct ciovec iov[2];
-#else
     struct iovec iov[2];
-#endif
     ((unsigned char *)hdr)[0] = chnl;
     ((unsigned char *)hdr)[1] = G.chnlcntr[chnl];
     hdr[1] = htons(datalen);
     iov[0].iov_base = hdr;
     iov[0].iov_len = 4;
-    iov[1].iov_base = data;
+    iov[1].iov_base = (char *)data; // cast & ignore cast-qual...
     iov[1].iov_len = datalen;
 
     info4("Channel %d:%d mux %zd bytes (to fd %d)",
 	  chnl, G.chnlcntr[chnl], datalen, fd);
 
     if (writev(fd, iov, 2) != (ssize_t)datalen + 4)
-	die("writev() to net failed:");
+	die("writev() to net failed:");  // \\ writev() does not modify *iov
 }
+#pragma GCC diagnostic pop
 
 int from_netpipe(int fd, uint8_t * chnl, uint8_t * cntr, char * data)
 {
