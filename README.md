@@ -43,18 +43,21 @@ TX11SSH(1)                       User Commands                      TX11SSH(1)
        direction for standard X11 forwarding provided by <b>ssh</b>(1) and the &apos;<b>-</b>&apos; is
        useful when <b>sshd</b>(8) is not configured to support X11 forwarding.
 
+       Both systems at the endpoints  of  the  tunnel  need  to  have  <b>tx11ssh</b>
+       installed and available in PATH for normal usage.
+
 <b>OPTIONS</b>
        [:[<u>nums</u>][:<u>numd</u>]]
            Use these numbers in unix sockets created. The first number <u>nums</u> is
            the server socket to be created (i.e. /tmp/.X11-unix/X<u>nums</u>) and the
-           second <u>numd</u> display server socket where co connect. Default  values
+           second  <u>numd</u> display server socket where co connect. Default values
            are 11 and 0, respectively. Either can be omitted; e.g. :<u>12</u> and ::<u>1</u>
            are accepted.
 
            Under Linux if <u>nums</u> or <u>numd</u> is prefixed with <u>@</u> the filesystem inde-
-           pendent  abstract  namespace  is  used when creating these sockets.
+           pendent abstract namespace is used  when  creating  these  sockets.
            (Note that abstract namespace is in network namespace securitywise.
-           For  example  LXC containers sharing network namespaces shares also
+           For example LXC containers sharing network namespaces  shares  also
            this filesystem-independent abstract namespace of unix domain sock-
            ets.)
 
@@ -62,30 +65,30 @@ TX11SSH(1)                       User Commands                      TX11SSH(1)
            Execute command instead of &apos;<b>ssh</b>&apos; for tunnel creation
 
        --ll <u>num</u>
-           The  &quot;loglevel&quot;  of  tx11ssh. With value 0 only severe warnings are
-           printed to stderr. With value 4 all messages are  printed.  Default
+           The &quot;loglevel&quot; of tx11ssh. With value 0 only  severe  warnings  are
+           printed  to  stderr. With value 4 all messages are printed. Default
            value is 2.
 
        <u>args...</u>
-           &quot;command  line  arguments&quot; given to <b>ssh</b> when executed. Given verba-
+           &quot;command line arguments&quot; given to <b>ssh</b> when executed.  Given  verba-
            tim.  This is flexible; tx11ssh can be executed with alternate path
-           or  wrappers  can  be  used if needed, but this can also be used to
+           or wrappers can be used if needed, but this can  also  be  used  to
            break things (e.g. wrong paths or <u>-f/n</u> flags given to ssh...).
 
 <b>SECURITY</b>
-       The normal X security concerns apply here, e.g. <b>xinput</b>(1) can  be  used
+       The  normal  X security concerns apply here, e.g. <b>xinput</b>(1) can be used
        to sneak X events of other windows. There is uid check for the X client
        connecting to the X unix domain socket done; whether this is enough one
-       have  to judge itself. Use of wrapx11usock.so shown below will at least
+       have to judge itself. Use of wrapx11usock.so shown below will at  least
        hide the X socket from other users (security by obscurity when thinking
        about root users).
 
 <b>EXAMPLES</b>
-       <b>Case</b> <b>1:</b>  One wants to open windows from Windows machine on a Unix desk-
-       top; but configuring sshd to work on windows  (cygwin)  environment  is
-       nontrivial  thing to do. From one Cygwin Terminal open x11ssh tunnel to
-       unix host and from another execute  urxvt  terminal  using  display  11
-       (which  is tx11ssh default) to open the urxvt terminal window to remote
+       <b>Case</b> <b>1:</b> One wants to open windows from Windows machine on a Unix  desk-
+       top;  but  configuring  sshd to work on windows (cygwin) environment is
+       nontrivial thing to do. From one Cygwin Terminal open x11ssh tunnel  to
+       unix  host  and  from  another  execute urxvt terminal using display 11
+       (which is tx11ssh default) to open the urxvt terminal window to  remote
        X display.
 
          <u>cygwin-term1</u>$ tx11ssh + user@unixhost
@@ -93,31 +96,31 @@ TX11SSH(1)                       User Commands                      TX11SSH(1)
          <u>cygwin-term2</u>$ DISPLAY=:11 urxvt -fade 1 -tn rxvt-unicode &amp;
 
        <b>Case</b> <b>2:</b> Remote sshd is not configured to support X11 forwarding, there-
-       fore  it has to be done by &quot;ourselves&quot;. The &apos;-&apos; option of tx11ssh makes
-       the X11 unix domain server socket available on a remote host; the  com-
-       mand  line  on  second  terminal  below  uses  the  display 11 (tx11ssh
+       fore it has to be done by &quot;ourselves&quot;. The &apos;-&apos; option of tx11ssh  makes
+       the  X11 unix domain server socket available on a remote host; the com-
+       mand line on  second  terminal  below  uses  the  display  11  (tx11ssh
        default) to open the window of remote command on local X display.
 
          <u>term1</u>$ tx11ssh - user@host
 
          <u>term2</u>$ ssh -f user@host env DISPLAY=:11 urxvt
 
-       <b>Case</b> <b>3:</b> This is like case 2, but instead  of  using  <u>/tmp/.X11-unix/X11</u>
+       <b>Case</b> <b>3:</b>  This  is  like case 2, but instead of using <u>/tmp/.X11-unix/X11</u>
        for the X11 display unix domain socket, use <u>$HOME/.ssh/X11</u> instead. The
-       wrapx11usock preload library does the path mangling  to  achieve  this.
-       The  reasons  one might need this includes: security, multiuser support
-       and filesystem permissions. The wrapx11usock.sh script (and the  source
-       for  the preload library it uses) can be found in the source archive of
+       wrapx11usock  preload  library  does the path mangling to achieve this.
+       The reasons one might need this includes: security,  multiuser  support
+       and  filesystem permissions. The wrapx11usock.sh script (and the source
+       for the preload library it uses) can be found in the source archive  of
        <b>tx11ssh.</b>
 
          <u>term1</u>$ tx11ssh - user@host ./wrapx11usock.sh
 
          <u>term2</u>$ ssh -f user@host ./wrapx11usock.sh urxvt
 
-       <b>Case</b> <b>4:</b> Tunneling through a proxy. In some cases there the  destination
-       machine  is  not  directly  reachable;  there  is  a &quot;proxy&quot; machine in
-       between. Here are examples of ways how  to  handle  the  following  two
-       cases:  There is <b>ssh</b> server to be connected first (2 examples below) or
+       <b>Case</b> <b>4:</b>  Tunneling through a proxy. In some cases there the destination
+       machine is not directly  reachable;  there  is  a  &quot;proxy&quot;  machine  in
+       between.  Here  are  examples  of  ways how to handle the following two
+       cases: There is <b>ssh</b> server to be connected first (2 examples below)  or
        there is http CONNECT proxy to be used, respectively.
 
          <u>term</u>$ tx11ssh - -oProxyCommand=&apos;ssh user@proxy -W %h:%p&apos; user@host
@@ -128,17 +131,17 @@ TX11SSH(1)                       User Commands                      TX11SSH(1)
 
        The client execution (and all of the wrapping options) are the same.
 
-       (Instead of &apos;-W&apos; the &apos;nc&apos; alternative provides option to add more  for-
-       wardings  to the proxy command (e.g. -D port); With &apos;-W&apos; all other for-
+       (Instead  of &apos;-W&apos; the &apos;nc&apos; alternative provides option to add more for-
+       wardings to the proxy command (e.g. -D port); With &apos;-W&apos; all other  for-
        warding attempts are cleared out.)
 
 <b>DETACHING</b> <b>tx11ssh</b>
-       Perfect &quot;detaching&quot; from shell is impossible to  implement  in  tx11ssh
-       since  one  needs to detach from control terminal too.  If detaching is
-       postponed after ssh tunnel  is  created,  the  ssh  process  cannot  be
+       Perfect  &quot;detaching&quot;  from  shell is impossible to implement in tx11ssh
+       since one needs to detach from control terminal too.  If  detaching  is
+       postponed  after  ssh  tunnel  is  created,  the  ssh process cannot be
        detached (anymore). If detach is done before executing ssh, interactive
-       authentication methods on terminal cannot be done  anymore.   Therefore
-       detaching,  whenever  anyone  wants to do so, can be done at least with
+       authentication  methods  on terminal cannot be done anymore.  Therefore
+       detaching, whenever anyone wants to do so, can be done  at  least  with
        the the help of following commands(*):
 
        Non-interactive:
@@ -155,7 +158,8 @@ TX11SSH(1)                       User Commands                      TX11SSH(1)
          tmux tx11ssh + remote
 
        (*) Interestingly at least in linux, both <b>setsid</b>(1) &amp; <b>script(1)</b> escapes
-           from terminal when execve&apos;d from <b>nohup</b>(1)...
+           from terminal when execve&apos;d from <b>nohup</b>(1) -- at least when executed
+           from interactive shell running on a tty.
 
 <b>AUTHOR</b>
        Written by Tomi Ollila.

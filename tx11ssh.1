@@ -66,6 +66,9 @@ The '\fB+\fR' option is convenient when ssh connection cannot be made in
 the direction for standard X11 forwarding provided by \fBssh\fR(1) and
 the '\fB-\fR' is useful when \fBsshd\fR(8) is not configured to support
 X11 forwarding.
+.PP
+Both systems at the endpoints of the tunnel need to have \fBtx11ssh\fR
+installed and available in PATH for normal usage.
 .\"
 .SH OPTIONS
 
@@ -219,7 +222,8 @@ tmux tx11ssh + remote
 .TP 4
 .RI (*)
 Interestingly at least in linux, both \fBsetsid\fR(1) & \fBscript(1)\fR
-escapes from terminal when execve'd from \fBnohup\fR(1)...
+escapes from terminal when execve'd from \fBnohup\fR(1) -- at least when
+executed from interactive shell running on a tty.
 .\"
 .SH "AUTHOR"
 
