@@ -1,7 +1,7 @@
 # -*- makefile -*-
 
-VERSION = 1.1
-DATE = 2013-11-02
+VERSION = 1.2
+DATE = 2014-02-08
 
 CC = gcc
 
@@ -41,10 +41,33 @@ install.sh:
 	exit 1 # not reached
 
 F = tx11ssh.c tx11ssh.1 Makefile usock-buffer-test.c test-tx11ssh.pl \
-	README.md LICENSE TECHNOTES wrapx11usock.sh ldpreload_wrapx11usock.c
+	README.md LICENSE TECHNOTES wrapx11usock.sh ldpreload_wrapx11usock.c \
+	tarlisted.pm
 
 txz:	README.md
-	tar --xform s,^,tx11ssh-$(VERSION)/, -Jcvf tx11ssh-$(VERSION).tar.xz $F
+	@ct=`exec git --no-pager log -1 --pretty='%ct'`; \
+	sed '1,/^$@.pl:/d;/^#.#eos/q' Makefile | perl - "$(VERSION)" $$ct $F
+
+txz.pl:
+	use strict; use warnings; use tarlisted;
+	my $version = shift;
+	my $arcname = "tx11ssh-$version";
+	print "Creating '$arcname.tar.xz'...\n";
+	tarlisted_open "$arcname.tar.xz", 'xz';
+	my $timestamp = shift;
+	my @go = ( $timestamp, 0, 0, 'root', 'root' );
+	foreach (@ARGV) {
+		print "Adding '$_'...\n";
+		my $name = "$arcname/$_";
+		my $size = tarlisted_writefilehdr $_, $name, undef, @go;
+		tarlisted_copyfile $_, $size;
+	}
+	tarlisted_close;
+	print "Done.\n";
+	exec qw/ls -l/, "$arcname.tar.xz";
+#	#eos
+	exit 1; # not reached
+	__END__
 
 README.md: verchk
 	sed '1,/^$@.sh:/d;/^#.#eos/q' Makefile | sh -s "$(VERSION)" "$@"
