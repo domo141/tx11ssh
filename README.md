@@ -11,11 +11,6 @@ Read the embedded manual page below for more information.
 
 For technical info read [TECHNOTES](TECHNOTES).
 
-Changes from version 1.0 to 1.1:
-
-  * Abstract namespace support for unix sockets under Linux
-  * Web page creation changed and copyright/license information added
-
 <pre>
 TX11SSH(1)                       User Commands                      TX11SSH(1)
 
@@ -43,8 +38,8 @@ TX11SSH(1)                       User Commands                      TX11SSH(1)
        direction for standard X11 forwarding provided by <b>ssh</b>(1) and the &apos;<b>-</b>&apos; is
        useful when <b>sshd</b>(8) is not configured to support X11 forwarding.
 
-       Both systems at the endpoints  of  the  tunnel  need  to  have  <b>tx11ssh</b>
-       installed and available in PATH for normal usage.
+       Both systems at the tunnel endpoints need to have <b>tx11ssh</b> installed and
+       available in PATH for normal usage.
 
 <b>OPTIONS</b>
        [:[<u>nums</u>][:<u>numd</u>]]

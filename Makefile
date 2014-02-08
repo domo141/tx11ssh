@@ -91,12 +91,6 @@ README.md.sh:
 	echo
 	echo 'For technical info read [TECHNOTES](TECHNOTES).'
 	echo
-	echo 'Changes from version 1.0 to 1.1:'
-	echo
-	echo '  * Abstract namespace support for unix sockets under Linux'
-	echo '  * Web page creation changed and copyright/license information\c'
-	echo ' added'
-	echo
 	echo '<pre>'
 	groff -man -T latin1 tx11ssh.1 | perl -e '
 	my %htmlqh = qw/& &amp;   < &lt;   > &gt;   '\'' &apos;   " &quot;/;
