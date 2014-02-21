@@ -56,11 +56,11 @@ txz.pl:
 	tarlisted_open "$arcname.tar.xz", 'xz';
 	my $timestamp = shift;
 	my @go = ( $timestamp, 0, 0, 'root', 'root' );
+	&tarlisted_mkdir ($arcname, 0755, @go);
 	foreach (@ARGV) {
 		print "Adding '$_'...\n";
 		my $name = "$arcname/$_";
-		my $size = tarlisted_writefilehdr $_, $name, undef, @go;
-		tarlisted_copyfile $_, $size;
+		tarlisted_cp $_, $name, undef, @go;
 	}
 	tarlisted_close;
 	print "Done.\n";

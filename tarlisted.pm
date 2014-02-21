@@ -8,10 +8,10 @@
 #	    All rights reserved
 #
 # Created: Fri 06 Dec 2013 14:30:05 EET too
-# Last modified: Sat 08 Feb 2014 00:08:08 +0200 too
+# Last modified: Fri 21 Feb 2014 22:39:27 +0200 too
 
 # This is copy of tarlisted.pm from https://github.com/domo141/tarlisted
-# commit: 6cad1adefae852de4d5459d0  blob: bfe60c6013d74193bf23177c
+# commit: 331e812a0e8555f695bb3c71  blob: 55f4895cf324342be48fb938
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -47,14 +47,15 @@
 
 # Just include this file to the beginning of a separate program.
 
-# Functions of this file to be called from outside:
-#  sub tarlisted_mkhdr($$$$$$$$$$)
-#  sub tarlisted_writehdr($)
-#  sub tarlistd_stringfile($$) # string, expected length
-#  sub tarlisted_writefilehdr(@)
-#  sub tarlisted_copyfile($$) # file name, file size
-#  sub tarlisted_open(@)
-#  sub tarlisted_close()
+# Functions of this file supposed to be called from outside:
+   sub tarlisted_open($@); # name following optional compression program & args
+   sub tarlisted_close();
+   sub tarlisted_cp($@);
+   sub tarlisted_stat($); # use w/ funcs below, called as &tarlisted_func()...
+   sub tarlisted_cpstr($$$$$$@); # string as file
+   sub tarlisted_mkdir($$$$$@);
+#  sub tarlisted_mklink($$$$$@); # sym & hard links, to be implemented
+#  sub tarlisted_mknod($$$$$@); # makes fifos too, to be implemented
 
 use 5.6.1;
 use strict;
@@ -62,6 +63,7 @@ use warnings;
 use bytes;
 
 my $_tarlisted_pid = -1;
+
 
 sub _tarlisted_pipetocmd(@)
 {
@@ -84,8 +86,9 @@ sub _tarlisted_pipetocmd(@)
     close PW;
 }
 
+
 # IEEE Std 1003.1-1988 (“POSIX.1”) ustar format
-sub tarlisted_mkhdr($$$$$$$$$$)
+sub _tarlisted_mkhdr($$$$$$$$$$)
 {
     if (length($_[7]) > 99) {
 	die "Link name '$_[7]' too long\n";
@@ -131,6 +134,7 @@ sub tarlisted_mkhdr($$$$$$$$$$)
     return $hdr;
 }
 
+
 sub _tarlisted_xsyswrite($)
 {
     my $len = syswrite TARLISTED, $_[0] or 0;
@@ -145,11 +149,13 @@ sub _tarlisted_xsyswrite($)
 
 my $_tarlisted_wb = 0;
 
-sub tarlisted_writehdr($)
+
+sub _tarlisted_writehdr($)
 {
     _tarlisted_xsyswrite $_[0];
     $_tarlisted_wb += 512;
 }
+
 
 sub _tarlisted_addpad()
 {
@@ -160,16 +166,9 @@ sub _tarlisted_addpad()
     }
 }
 
-sub tarlisted_stringfile($$) # string, expected length
-{
-    _tarlisted_xsyswrite($_[0]);
-    die "length of string '$_[0]' is not $_[1]\n" unless length $_[0] == $_[1];
-    $_tarlisted_wb += $_[1];
-    _tarlisted_addpad;
-}
 
-# file [name perm mtime uid gid uname gname] :: returns size for copyfile...
-sub tarlisted_writefilehdr(@)
+# file [name perm mtime uid gid uname gname]
+sub tarlisted_cp($@)
 {
     my $name = $_[0];
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
@@ -184,28 +183,61 @@ sub tarlisted_writefilehdr(@)
     my $uname = defined $_[6]? $_[6]: getpwuid $uid;
     my $gname = defined $_[7]? $_[7]: getgrgid $gid;
 
-    my $hdr = tarlisted_mkhdr($name, $mode, $uid, $gid, $size,
-			      $mtime, '0', '', $uname, $gname);
-    tarlisted_writehdr $hdr;
-    return $size;
-}
+    my $hdr = _tarlisted_mkhdr($name, $mode, $uid, $gid, $size,
+			       $mtime, '0', '', $uname, $gname);
+    _tarlisted_writehdr $hdr;
 
-sub tarlisted_copyfile($$) # file name, file size
-{
     open TARLISTED_IN, '<', $_[0] or die "opening '$_[0]': $!\n";
     my $buf; my $tlen = 0;
     while ( (my $len = sysread(TARLISTED_IN, $buf, 65536)) > 0) {
 	_tarlisted_xsyswrite $buf;
 	$tlen += $len;
     }
-    die "Short read ($tlen != $_[1])!\n" if $tlen != $_[1];
+    die "Short read ($tlen != $size)!\n" if $tlen != $size;
     close TARLISTED_IN;
     $_tarlisted_wb += $tlen;
     _tarlisted_addpad;
 }
 
 
-sub tarlisted_open(@)
+# stat hälper
+sub tarlisted_stat($)
+{
+    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+	$atime,$mtime,$ctime,$blksize,$blocks) = stat $_[0];
+
+    die "stat failed: $!\n" unless defined $blocks;
+
+    return ( $mode & 0777, $mtime, $uid, $gid, getpwuid $uid, getgrgid $gid );
+}
+
+# string name perm mtime uid gid [uname gname]
+sub tarlisted_cpstr($$$$$$@)
+{
+    my $uname = defined $_[6]? $_[6]: getpwuid $_[4];
+    my $gname = defined $_[7]? $_[7]: getgrgid $_[5];
+    my $len = length $_[0];
+    my $hdr = _tarlisted_mkhdr($_[1], $_[2], $_[4], $_[5], $len,
+			       $_[3], '0', '', $uname, $gname);
+    _tarlisted_writehdr $hdr;
+    _tarlisted_xsyswrite $_[0];
+    $_tarlisted_wb += $len;
+    _tarlisted_addpad;
+}
+
+# dir perm mtime uid gid [uname gname]
+sub tarlisted_mkdir($$$$$@)
+{
+    my $uname = defined $_[5]? $_[5]: getpwuid $_[3];
+    my $gname = defined $_[6]? $_[6]: getgrgid $_[4];
+
+    my $hdr = _tarlisted_mkhdr($_[0], $_[1], $_[3], $_[4], 0,
+			       $_[2], '5', '', $uname, $gname);
+    _tarlisted_writehdr $hdr;
+}
+
+
+sub tarlisted_open($@)
 {
     die "tarlisted alreadly open\n" if $_tarlisted_pid >= 0;
     $_tarlisted_pid = 0;
@@ -218,6 +250,7 @@ sub tarlisted_open(@)
     _tarlisted_pipetocmd @_ if @_;
     $_tarlisted_wb = 0;
 }
+
 
 sub tarlisted_close()
 {
