@@ -28,7 +28,7 @@
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Thu 05 Dec 2013 00:03:15 +0200 too
+ * Last modified: Wed 19 Mar 2014 22:01:09 +0200 too
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -548,25 +548,25 @@ void set_nonblock(int sd)
 void fill_socket_file(const char * arg)
 {
 #if __linux__
-    char * socket_file;
+    char * socket_file_name;
     size_t socket_file_size;
     if (arg[0] == '@') {
 	arg++;
 	G.socket_file[0] = '\0';
-	socket_file = G.socket_file + 1;
+	socket_file_name = G.socket_file + 1;
 	socket_file_size = sizeof G.socket_file - 1;
     }
     else {
-	socket_file = G.socket_file;
+	socket_file_name = G.socket_file;
 	socket_file_size = sizeof G.socket_file;
     }
 #else
-#define socket_file G.socket_file
+#define socket_file_name G.socket_file
 #define socket_file_size sizeof G.socket_file
 #endif
-    snprintf(socket_file, socket_file_size, "%s/X%s", sockdir, arg);
+    snprintf(socket_file_name, socket_file_size, "%s/X%s", sockdir, arg);
 #if ! __linux__
-#undef socket_file
+#undef socket_file_name
 #undef socket_file_size
 #endif
 }
