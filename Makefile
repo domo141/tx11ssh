@@ -1,7 +1,7 @@
 # -*- makefile -*-
 
-VERSION = 1.2
-DATE = 2014-02-08
+VERSION = 1.3
+DATE = 2014-03-19
 
 CC = gcc
 
