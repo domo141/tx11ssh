@@ -221,9 +221,11 @@ tmux tx11ssh + remote
 .\"
 .TP 4
 .RI (*)
-Interestingly at least in linux, both \fBsetsid\fR(1) & \fBscript(1)\fR
+Interestingly at least in linux, both \fBsetsid\fR(1) & \fBscript\fR(1)
 escapes from terminal when execve'd from \fBnohup\fR(1) -- at least when
-executed from interactive shell running on a tty.
+executed from interactive shell running on a tty. More robust detachment
+from caller (if so desired) may be achieved by prefixing leading \fBnohup\fR
+with one more \fBsetsid\fR.
 .\"
 .SH "AUTHOR"
 
