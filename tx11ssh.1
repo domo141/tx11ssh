@@ -117,9 +117,12 @@ thing to do. From one Cygwin Terminal open x11ssh tunnel to unix host and
 from another execute urxvt terminal using display 11 (which is tx11ssh
 default) to open the urxvt terminal window to remote X display.
 
+Optional [path/to/tx11ssh] is useful when tx11ssh is not available in PATH
+(yet).
+
 .RS 2
 .nf
-.I cygwin-term1\fR$ tx11ssh + user@unixhost
+.I cygwin-term1\fR$ tx11ssh + user@unixhost  [path/to/tx11ssh]
 .P
 .I cygwin-term2\fR$ DISPLAY=:11 urxvt -fade 1 -tn rxvt-unicode &
 .fi
@@ -134,7 +137,7 @@ the window of remote command on local X display.
 
 .RS 2
 .nf
-.I term1\fR$ tx11ssh - user@host
+.I term1\fR$ tx11ssh - user@host  [path/to/tx11ssh]
 .P
 .I term2\fR$ ssh -f user@host env DISPLAY=:11 urxvt
 .fi
