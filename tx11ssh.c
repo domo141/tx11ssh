@@ -1,8 +1,12 @@
 #if 0 /* -*- mode: c; c-file-style: "stroustrup"; tab-width: 8; -*-
- set -eu; trg=`basename "$0" .c`; rm -f "$trg" "$trg"
- WARN="-Wall -Wno-long-long -Wstrict-prototypes -pedantic"
- WARN="$WARN -Wcast-align -Wpointer-arith " # -Wfloat-equal #-Werror
- WARN="$WARN -W -Wshadow -Wwrite-strings -Wcast-qual" # -Wconversion
+ set -euf; trg=${0##*''/}; trg=${trg%.c}; test -e "$trg" && rm "$trg"
+ WARN="-Wall -Wextra -Wstrict-prototypes -Wformat=2" # -pedantic
+ WARN="$WARN -Wcast-qual -Wpointer-arith" # -Wfloat-equal #-Werror
+ WARN="$WARN -Wcast-align -Wwrite-strings -Wshadow" # -Wconversion
+ WARN="$WARN -Waggregate-return -Wold-style-definition -Wredundant-decls"
+ WARN="$WARN -Wbad-function-cast -Wnested-externs -Wmissing-include-dirs"
+ WARN="$WARN -Wmissing-prototypes -Wmissing-declarations -Wlogical-op"
+ WARN="$WARN -Woverlength-strings -Winline -Wundef -Wvla -Wpadded"
  set_cc() { CC=$2; }
  CC=; case ${1-} in CC=*) ifs=$IFS; IFS==; set_cc $1; IFS=$ifs; shift; esac
  case ${1-} in
@@ -24,11 +28,14 @@
  *
  * Author: Tomi Ollila -- too ät iki piste fi
  *
- *      Copyright (c) 2013 Tomi Ollila
+ *      Copyright (c) 2013-2024 Tomi Ollila
  *          All rights reserved
  *
  * Created: Tue 05 Feb 2013 21:01:50 EET too
- * Last modified: Wed 19 Mar 2014 22:01:09 +0200 too
+ * Last mod:fied: Wed 19 Mar 2014 22:01:09 +0200 too
+ * Last modified: Tue 01 Oct 2024 18:42:56 +0300 too
+ *
+ * No functional changes done since 2014
  */
 
 /* LICENSE: 2-clause BSD license ("Simplified BSD License"):
@@ -64,12 +71,12 @@
 #define _POSIX_C_SOURCE 200112L // for S_ISSOCK
 //efine _POSIX_C_SOURCE 200809L // for strdup
 
-#if __linux__ || __CYGWIN32__
-#if DEVEL
-#define __NEED_UCRED 1	// to aid noticing portability issues when compiling
-#else
-#define _GNU_SOURCE 1	// for struct ucred
+#ifndef DEVEL
+#define DEVEL 0
 #endif
+
+#if __linux__ || __CYGWIN32__
+#define _GNU_SOURCE 1	// for struct ucred and SO_PEERCRED
 #endif
 
 #include <unistd.h>
@@ -88,13 +95,9 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/uio.h>
 #include <arpa/inet.h> // for htons/ntohs
 #include <errno.h>
-
-#if __NEED_UCRED // defined for devel build, to aid noticing portability issues
-// in case this is defined even _GNU_SOURCE is not defined, just outcomment
-struct ucred { pid_t pid; uid_t uid; gid_t gid; }; //usr/include/bits/socket.h
-#endif
 
 // clang -dM -E - </dev/null | grep __GNUC__  outputs '#define __GNUC__ 4'
 
@@ -146,6 +149,8 @@ const char display_ident[] = {
 
 // byte1: chnl (5-255), byte2: chnlcntr, byte 3-4 msg length -- max 16384
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpadded"
 struct {
     const char * component_ident;
     int component_identlen;
@@ -157,17 +162,21 @@ struct {
     unsigned char chnlcntr[256];
     int nfds;
 } G;
+#pragma GCC diagnostic pop
 
 const char sockdir[] = "/tmp/.X11-unix";
 
+static
 void die(const char * format, ...) GCCATTR_PRINTF(1,2) GCCATTR_NORETURN;
 
+static
 void set_ident(const char * ident)
 {
     G.component_ident = ident;
     G.component_identlen = strlen(G.component_ident);
 }
 
+static
 void init_G(const char * ident)
 {
     memset(&G, 0, sizeof G);
@@ -176,7 +185,8 @@ void init_G(const char * ident)
     G.infolevel = 2;
 }
 
-static void init_comm(void)
+static
+void init_comm(void)
 {
     const int n = sizeof G.pfds / sizeof G.pfds[0];
 
@@ -190,6 +200,7 @@ static void init_comm(void)
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual" // works with (char *)str ...
+static
 void vout(int fd, const char * format, va_list ap)
 {
     int error = errno;
@@ -245,6 +256,7 @@ void vout(int fd, const char * format, va_list ap)
 #define info3(...) if (G.infolevel >= 3) warn(__VA_ARGS__)
 #define info4(...) if (G.infolevel >= 4) warn(__VA_ARGS__)
 
+static
 void warn(const char * format, ...) GCCATTR_PRINTF(1,2);
 void warn(const char * format, ...)
 {
@@ -254,6 +266,7 @@ void warn(const char * format, ...)
     vout(2, format, ap);
     va_end(ap);
 }
+static
 void die(const char * format, ...)
 {
     va_list ap;
@@ -266,12 +279,14 @@ void die(const char * format, ...)
     exit(1);
 }
 
+static
 void sleep100ms(void)
 {
     d1(("sleep 100 msec (0.1 sec)"));
     poll(0, 0, 100);
 }
 
+static
 void wait_for_ident(int fd, const char * ident, size_t isize)
 {
 #if 1
@@ -352,6 +367,7 @@ void wait_for_ident(int fd, const char * ident, size_t isize)
     die("poll:"); /// XXX ///
 }
 
+static
 void xreadfully(int fd, void * buf, ssize_t len)
 {
     int tl = 0;
@@ -379,6 +395,7 @@ void xreadfully(int fd, void * buf, ssize_t len)
     }
 }
 
+static
 bool to_socket(int sd, void * data, size_t datalen)
 {
     ssize_t wlen = write(sd, data, datalen);
@@ -402,7 +419,11 @@ bool to_socket(int sd, void * data, size_t datalen)
 	datalen -= wlen;
 
 	wlen = write(sd, buf, datalen);
-	if (errno != EAGAIN && errno != EWOULDBLOCK) {
+	if (errno != EAGAIN
+#if EAGAIN != EWOULDBLOCK
+	    && errno != EWOULDBLOCK
+#endif
+	    ) {
 	    warn("Channel %d fd gone ...:", sd);
 	    return false;
 	}
@@ -418,6 +439,7 @@ bool to_socket(int sd, void * data, size_t datalen)
     return false;
 }
 
+static
 void mux_eof_to_netpipe(int fd, int chnl)
 {
     unsigned char hdr[4];
@@ -434,6 +456,7 @@ void mux_eof_to_netpipe(int fd, int chnl)
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual" // works with (char *)str ...
+static
 void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
 {
     uint16_t hdr[2];
@@ -454,6 +477,7 @@ void mux_to_netpipe(int fd, int chnl, const void * data, size_t datalen)
 }
 #pragma GCC diagnostic pop
 
+static
 int from_netpipe(int fd, uint8_t * chnl, uint8_t * cntr, char * data)
 {
     uint16_t hdr[2];
@@ -473,6 +497,7 @@ int from_netpipe(int fd, uint8_t * chnl, uint8_t * cntr, char * data)
     return len;
 }
 
+static
 void close_socket_and_remap(int sd)
 {
     close(sd);
@@ -497,6 +522,7 @@ void close_socket_and_remap(int sd)
 	    warn("fdmap: i: %d -> fd: %d (%d)", i, fd, G.chnl2pfd[fd]); });
 }
 
+static
 int from_socket_to_netpipe(int pfdi, int netfd)
 {
     char buf[16384];
@@ -520,6 +546,7 @@ int from_socket_to_netpipe(int pfdi, int netfd)
     return true;
 }
 
+static
 int xmkusock(void)
 {
     int sd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -527,12 +554,14 @@ int xmkusock(void)
     return sd;
 }
 
+static
 void xdup2(int o, int n)
 {
     if (dup2(o, n) < 0)
 	die("dup2:");
 }
 
+static
 int xfcntl(int fd, int cmd, int arg)
 {
     int rv = fcntl(fd, cmd, arg);
@@ -540,11 +569,13 @@ int xfcntl(int fd, int cmd, int arg)
     return rv;
 }
 
+static inline
 void set_nonblock(int sd)
 {
     xfcntl(sd, F_SETFL, xfcntl(sd, F_GETFL, 0) | O_NONBLOCK);
 }
 
+static
 void fill_socket_file(const char * arg)
 {
 #if __linux__
@@ -572,6 +603,7 @@ void fill_socket_file(const char * arg)
 }
 
 
+static
 void remote_set_socket_file(const char * arg)
 {
     if (arg == null)
@@ -596,6 +628,7 @@ void remote_set_socket_file(const char * arg)
     fill_socket_file(arg);
 }
 
+static
 void set_infolevel(char * arg)
 {
     if (arg && arg[0] >= '0' && arg[0] <= '9')
@@ -604,7 +637,11 @@ void set_infolevel(char * arg)
 
 #if SERVER
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wundef"
+
 // generic, but needed only in server code!
+static
 bool checkpeerid(int sd)
 {
 #if __linux__ || __CYGWIN32__
@@ -639,8 +676,10 @@ bool checkpeerid(int sd)
     return true;
 #endif
 }
+#pragma GCC diagnostic pop
 
 
+static
 int xubind_listen(char * path)
 {
     int sd = xmkusock();
@@ -686,6 +725,7 @@ int xubind_listen(char * path)
     return sd;
 }
 
+static
 void create_nullfd(int fd)
 {
     (void)close(fd);
@@ -696,6 +736,7 @@ void create_nullfd(int fd)
 	die("Unexpected fd %d (not %d) for nullfd", nullfd, fd);
 }
 
+static
 int sshconn(char * ssh_command, char * argv[],
 	    const char * component, const char * socknum)
 {
@@ -746,6 +787,7 @@ int sshconn(char * ssh_command, char * argv[],
     return sv[0];
 }
 
+static
 void server_handle_display_message(int rfdi, int rfdo)
 {
     char buf[16384];
@@ -772,12 +814,14 @@ void server_handle_display_message(int rfdi, int rfdo)
 }
 
 
+static
 void server_atexit(void)
 {
     close(4);
     unlink(G.socket_file);
 }
 
+static
 void server_loop(int rfdi) GCCATTR_NORETURN;
 void server_loop(int rfdi)
 {
@@ -840,6 +884,7 @@ void server_loop(int rfdi)
     }
 }
 
+static
 void remote_server(char ** av)
 {
     set_ident("remote-s");
@@ -859,6 +904,7 @@ void remote_server(char ** av)
     server_loop(0);
 }
 
+static
 void local_server(void) GCCATTR_NORETURN;
 void local_server(void)
 {
@@ -879,6 +925,7 @@ void local_server(void)
 
 #if DISPLAY
 
+static
 int xuconnect(const char * path)
 {
     int sd = xmkusock();
@@ -904,6 +951,7 @@ int xuconnect(const char * path)
     return sd;
 }
 
+static
 void display_handle_server_message(int rfdi, int rfdo)
 {
     char buf[16384];
@@ -960,6 +1008,7 @@ void display_handle_server_message(int rfdi, int rfdo)
     }
 }
 
+static
 void display_loop(int rfdi) GCCATTR_NORETURN;
 void display_loop(int rfdi)
 {
@@ -989,6 +1038,7 @@ void display_loop(int rfdi)
     }
 }
 
+static
 void remote_display(char ** av) GCCATTR_NORETURN;
 void remote_display(char ** av)
 {
@@ -1010,6 +1060,7 @@ void remote_display(char ** av)
     display_loop(0);
 }
 
+static
 void local_display(void) GCCATTR_NORETURN;
 void local_display(void)
 {
@@ -1030,6 +1081,7 @@ void local_display(void)
 
 #endif // DISPLAY
 
+static
 bool get_next_arg_val(int * acp, char *** avp, const char * s, char ** ap)
 {
     int i = strcmp(**avp, s);
@@ -1049,6 +1101,7 @@ bool get_next_arg_val(int * acp, char *** avp, const char * s, char ** ap)
     return false;
 }
 
+static
 void exit_sig(int sig) { exit(sig); }
 
 int main(int argc, char ** argv)
